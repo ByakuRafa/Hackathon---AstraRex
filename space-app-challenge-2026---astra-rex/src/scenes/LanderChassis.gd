@@ -236,16 +236,26 @@ func _enforce_double_sided_materials(root_node: Node) -> void:
 	if root_node is MeshInstance3D:
 		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
 		if mesh_inst.material_override is BaseMaterial3D:
-			(mesh_inst.material_override as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
-		if mesh_inst.mesh != null:
+			var override_dup: BaseMaterial3D = (mesh_inst.material_override as BaseMaterial3D).duplicate() as BaseMaterial3D
+			override_dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mesh_inst.material_override = override_dup
+		elif mesh_inst.mesh != null:
 			var surf_count: int = mesh_inst.mesh.get_surface_count()
-			for surf_idx: int in range(surf_count):
-				var override_mat: Material = mesh_inst.get_surface_override_material(surf_idx)
-				if override_mat is BaseMaterial3D:
-					(override_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
-				var surf_mat: Material = mesh_inst.mesh.surface_get_material(surf_idx)
-				if surf_mat is BaseMaterial3D:
-					(surf_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+			for surface_idx: int in range(surf_count):
+				var mat: Material = mesh_inst.get_active_material(surface_idx)
+				if mat == null:
+					mat = mesh_inst.mesh.surface_get_material(surface_idx)
+				if mat is BaseMaterial3D:
+					var dup: BaseMaterial3D = (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+					dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+					mesh_inst.set_surface_override_material(surface_idx, dup)
+				else:
+					var fallback: StandardMaterial3D = StandardMaterial3D.new()
+					fallback.cull_mode = BaseMaterial3D.CULL_DISABLED
+					fallback.albedo_color = Color(0.82, 0.85, 0.90, 1.0)
+					fallback.metallic = 0.45
+					fallback.roughness = 0.38
+					mesh_inst.set_surface_override_material(surface_idx, fallback)
 	for child: Node in root_node.get_children():
 		_enforce_double_sided_materials(child)
 

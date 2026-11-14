@@ -318,6 +318,7 @@ size_flags_horizontal = 3
 
 [node name="BtnProceedDebrief" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "Pareto Debrief ->"

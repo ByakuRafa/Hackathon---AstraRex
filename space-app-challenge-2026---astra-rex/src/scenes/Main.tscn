@@ -29,9 +29,13 @@ theme_override_constants/separation = 0
 
 [node name="MainHUD" parent="MainVBox" instance=ExtResource("2_hud")]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(1280, 84)
 layout_mode = 2
+size_flags_vertical = 0
 
 [node name="PhaseContainer" type="Control" parent="MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1280, 600)
 layout_mode = 2
 size_flags_vertical = 3
 clip_contents = true
@@ -54,3 +58,83 @@ layout_mode = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
+
+[node name="BottomActionBar" type="PanelContainer" parent="MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1280, 36)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="MainVBox/BottomActionBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="HBox" type="HBoxContainer" parent="MainVBox/BottomActionBar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SystemStatusBadge" type="Label" parent="MainVBox/BottomActionBar/Margin/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "COMPATIBLE  •  READY"
+vertical_alignment = 1
+text_overrun_behavior = 3
+
+[node name="LeftSpacer" type="Control" parent="MainVBox/BottomActionBar/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UtilityCluster" type="HBoxContainer" parent="MainVBox/BottomActionBar/Margin/HBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BottomDesignCodeEdit" type="LineEdit" parent="MainVBox/BottomActionBar/Margin/HBox/UtilityCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+placeholder_text = "Design Code..."
+
+[node name="BtnCopyDesignCode" type="Button" parent="MainVBox/BottomActionBar/Margin/HBox/UtilityCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(82, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Copy Code"
+
+[node name="BtnLoadDesignCode" type="Button" parent="MainVBox/BottomActionBar/Margin/HBox/UtilityCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(82, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Load Code"
+
+[node name="BtnExportCSV" type="Button" parent="MainVBox/BottomActionBar/Margin/HBox/UtilityCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(86, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Export CSV"
+
+[node name="BtnExportJSON" type="Button" parent="MainVBox/BottomActionBar/Margin/HBox/UtilityCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(92, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Export JSON"
+
+[node name="RightSpacer" type="Control" parent="MainVBox/BottomActionBar/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PrimaryNextStepBtn" type="Button" parent="MainVBox/BottomActionBar/Margin/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(228, 26)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "2. Assemble in VAB ->"

@@ -191,6 +191,7 @@ func _on_simulation_alert(alert_code: String, message: String, citation: String)
 
 
 func _sync_controls_from_state() -> void:
+	_ensure_compact_hud_styles()
 	var eng: bool = MissionState.engineer_mode
 	if btn_mode_toggle.button_pressed != eng:
 		btn_mode_toggle.set_pressed_no_signal(eng)
@@ -210,6 +211,36 @@ func _sync_controls_from_state() -> void:
 		var p_btn: Button = _preset_buttons[idx]
 		var is_selected: bool = (idx + 1 == MissionState.current_preset_index)
 		p_btn.set_pressed_no_signal(is_selected)
+
+
+func _ensure_compact_hud_styles() -> void:
+	if has_meta("_compact_hud_applied"):
+		return
+	set_meta("_compact_hud_applied", true)
+	var base_panel: StyleBox = get_theme_stylebox("panel")
+	if base_panel is StyleBoxFlat:
+		var hud_sb: StyleBoxFlat = (base_panel as StyleBoxFlat).duplicate() as StyleBoxFlat
+		hud_sb.content_margin_left = 10.0
+		hud_sb.content_margin_right = 10.0
+		hud_sb.content_margin_top = 4.0
+		hud_sb.content_margin_bottom = 4.0
+		add_theme_stylebox_override("panel", hud_sb)
+	var top_buttons: Array[Button] = []
+	for b: Button in _preset_buttons:
+		top_buttons.append(b)
+	for b: Button in _phase_buttons:
+		top_buttons.append(b)
+	top_buttons.append(btn_mode_toggle)
+	for b: Button in top_buttons:
+		for state_name: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+			var sb: StyleBox = b.get_theme_stylebox(state_name)
+			if sb is StyleBoxFlat:
+				var c_sb: StyleBoxFlat = (sb as StyleBoxFlat).duplicate() as StyleBoxFlat
+				c_sb.content_margin_top = 2.0
+				c_sb.content_margin_bottom = 2.0
+				c_sb.content_margin_left = 8.0
+				c_sb.content_margin_right = 8.0
+				b.add_theme_stylebox_override(state_name, c_sb)
 
 
 func refresh_telemetry(snap: Dictionary) -> void:
@@ -303,8 +334,10 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		mass_sub_label.text = "Dry %.0f kg  •  +%.0f%% MGA" % [mf_dry, mga_pct]
 	else:
 		mass_value_label.text = "%.0f kg" % m0_wet
-		mass_sub_label.text = "%s  •  Cap %.0f kg" % ["PASS" if mass_ok else "OVER", max_tli]
+		mass_sub_label.text = "%s  •  %.0f kg" % ["SAFE MARGIN" if mass_ok else "OVERLOAD", max_tli]
 
+	mass_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	mass_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mass_value_label.add_theme_color_override("font_color", COLOR_WHITE if mass_ok else COLOR_CRIT)
 	_apply_card_style(card_mass, border_col, bg_col)
 
@@ -336,11 +369,11 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 
 	if not tw_ok:
 		prop_value_label.text = "T/W %.2f (<1)" % tw
-		prop_sub_label.text = "LOCKOUT  •  %.0f m/s" % dv
+		prop_sub_label.text = ("LOCKOUT  •  %.0f m/s" % dv) if eng else "THRUST DEFICIT"
 		prop_value_label.add_theme_color_override("font_color", COLOR_CRIT)
 	elif not dv_ok:
 		prop_value_label.text = "%.0f / %.0f m/s" % [dv, req_dv]
-		prop_sub_label.text = "WARN  •  T/W %.2f" % tw
+		prop_sub_label.text = ("DV LOW  •  T/W %.2f" % tw) if eng else ("Δv DEFICIT  •  %.2f" % tw)
 		prop_value_label.add_theme_color_override("font_color", COLOR_WARN)
 	else:
 		if eng:
@@ -348,9 +381,11 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 			prop_sub_label.text = "T/W %.2f  •  %.1f kN" % [tw, thrust_n / 1000.0]
 		else:
 			prop_value_label.text = "%.0f m/s" % dv
-			prop_sub_label.text = "PASS  •  T/W %.2f" % tw
+			prop_sub_label.text = "SAFE LANDING T/W  •  %.2f" % tw
 		prop_value_label.add_theme_color_override("font_color", COLOR_WHITE)
 
+	prop_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	prop_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_apply_card_style(card_propulsion, border_col, bg_col)
 
 	var orb_citation: String = str(orbit.get("nasa_citation", "NASA SP-2016-6105 Rev2 Sec 4.4"))
@@ -381,9 +416,12 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 		power_value_label.text = "%+.0f W" % net_p
 		power_sub_label.text = "%.0f/%.0f W  •  %.1f kWh" % [p_gen, p_use, batt_wh / 1000.0]
 	else:
+		var p_state: String = "POWER POSITIVE" if (power_ok and night_ok) else ("SOLAR BLACKOUT" if not power_ok else "NIGHT DRAIN")
 		power_value_label.text = "%+.0f W" % net_p
-		power_sub_label.text = "%s  •  %.1f kWh" % ["PSR OK" if (power_ok and night_ok) else ("DEFICIT" if not power_ok else "NO NIGHT"), batt_wh / 1000.0]
+		power_sub_label.text = "%s  •  %.0f kWh" % [p_state, batt_wh / 1000.0]
 
+	power_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	power_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	power_value_label.add_theme_color_override("font_color", COLOR_WHITE if power_ok else COLOR_CRIT)
 	_apply_card_style(card_power, border_col, bg_col)
 
@@ -413,10 +451,12 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		budget_value_label.text = "$%.0fM / $%.0fM" % [total_cost, cap_musd]
 		budget_sub_label.text = "LV $%.0fM  •  Sub $%.0fM" % [lv_cost, sub_cost]
 	else:
-		var badge: String = "SANDBOX" if is_sandbox else ("PASS" if budget_ok else "OVER")
+		var badge: String = "SANDBOX CAP" if is_sandbox else ("WITHIN CAP" if budget_ok else "OVER BUDGET")
 		budget_value_label.text = "$%.0fM" % total_cost
-		budget_sub_label.text = "%s  •  Cap $%.0fM" % [badge, cap_musd]
+		budget_sub_label.text = "%s  •  $%.0fM" % [badge, cap_musd]
 
+	budget_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	budget_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	budget_value_label.add_theme_color_override("font_color", COLOR_WHITE if budget_ok else COLOR_CRIT)
 	_apply_card_style(card_budget, border_col, bg_col)
 
@@ -446,8 +486,10 @@ func _update_comms_card(snap: Dictionary, orbit: Dictionary, zone: Dictionary, e
 		comms_sub_label.text = "%.0f Mbps  •  DTE %.0f%%" % [dl_mbps, dte_pct]
 	else:
 		comms_value_label.text = "%.1f Mbps" % dl_mbps
-		comms_sub_label.text = "%s  •  Sci %.0f pts" % ["PASS" if comms_ok else "LIMIT", sci_eff]
+		comms_sub_label.text = "%s  •  %.0f pts" % ["LINK NOMINAL" if comms_ok else "DATA BOTTLENECK", sci_eff]
 
+	comms_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	comms_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	comms_value_label.add_theme_color_override("font_color", COLOR_WHITE if comms_ok else COLOR_WARN)
 	_apply_card_style(card_comms, border_col, bg_col)
 
@@ -478,10 +520,12 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 		rad_value_label.text = "%.0f d  •  %.0f mSv" % [life_days, dose_msv]
 		rad_sub_label.text = "%.1f g/cm²  •  %.0f krad" % [shield_g, tol_krad]
 	else:
-		var badge: String = "PASS" if rad_ok else ("FAIL" if life_days <= 0.0 else "SHORT")
+		var badge: String = "RAD SAFE" if rad_ok else ("RAD HAZARD" if life_days <= 0.0 else "SHORT LIFE")
 		rad_value_label.text = "%.0f d" % life_days
 		rad_sub_label.text = "%s  •  %.0f mSv" % [badge, dose_msv]
 
+	rad_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	rad_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	rad_value_label.add_theme_color_override("font_color", COLOR_WHITE if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
 	_apply_card_style(card_radiation, border_col, bg_col)
 

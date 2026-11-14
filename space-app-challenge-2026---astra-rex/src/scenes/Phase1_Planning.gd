@@ -444,6 +444,7 @@ func _update_role_priority_callout(active_r: int, snap: Dictionary) -> void:
 
 
 func _update_launch_vehicle_check(snap: Dictionary) -> void:
+	var eng: bool = bool(snap.get("engineer_mode", false))
 	var check: Dictionary = MissionState.validate_launch_compatibility()
 	var compat: bool = bool(check.get("compatible", false))
 	var mass_ok: bool = bool(check.get("mass_ok", false))
@@ -461,7 +462,10 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 	var cap: float = float(check.get("budget_cap_musd", 350.0))
 
 	var pill_color: Color = COLOR_OK if compat else COLOR_CRIT
-	check_status_banner.text = "COMPATIBILITY: PASS" if compat else "COMPATIBILITY: FAIL"
+	if eng:
+		check_status_banner.text = "COMPATIBILITY: PASS" if compat else "COMPATIBILITY: FAIL"
+	else:
+		check_status_banner.text = "READY FOR LAUNCH" if compat else "FIX DESIGN WARNINGS"
 	check_status_banner.add_theme_color_override("font_color", COLOR_WHITE)
 
 	var pill: StyleBoxFlat = StyleBoxFlat.new()
@@ -487,15 +491,21 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 	)
 
 	var lbl_mass: Label = _check_labels["mass"] as Label
-	lbl_mass.text = "%.0f / %.0f kg" % [m0_wet, max_tli]
+	if eng:
+		lbl_mass.text = "%.0f / %.0f kg" % [m0_wet, max_tli]
+	else:
+		lbl_mass.text = "%.0f kg (%s)" % [m0_wet, "SAFE MARGIN" if mass_ok else "OVERLOAD"]
 	lbl_mass.add_theme_color_override("font_color", COLOR_OK if mass_ok else COLOR_CRIT)
 
 	var lbl_dv: Label = _check_labels["dv"] as Label
-	lbl_dv.text = "%.0f / %.0f m/s" % [dv, req_dv]
+	lbl_dv.text = ("%.0f / %.0f m/s" % [dv, req_dv]) if eng else ("%.0f m/s (%s)" % [dv, "OK" if dv_ok else "SHORT"])
 	lbl_dv.add_theme_color_override("font_color", COLOR_OK if dv_ok else COLOR_WARN)
 
 	var lbl_tw: Label = _check_labels["tw"] as Label
-	lbl_tw.text = "%.2f %s" % [tw, "(PASS)" if tw_ok else "(FAIL)"]
+	if eng:
+		lbl_tw.text = "%.2f (%s)" % [tw, "T/W >= 1.0" if tw_ok else "< 1.0 LOCKOUT"]
+	else:
+		lbl_tw.text = "SAFE LANDING T/W" if tw_ok else "THRUST DEFICIT"
 	lbl_tw.add_theme_color_override("font_color", COLOR_OK if tw_ok else COLOR_CRIT)
 
 	var lbl_dte: Label = _check_labels["dte"] as Label
@@ -506,8 +516,11 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 	lbl_cost.text = "$%.0fM / $%.0fM" % [cost, cap]
 	lbl_cost.add_theme_color_override("font_color", COLOR_OK if budget_ok else COLOR_CRIT)
 
-	if compat:
-		check_reasons_label.text = "Ready for TLI injection. Hover badge for margins."
-	else:
-		check_reasons_label.text = "%d violation(s) detected. Hover badge for details." % reason_lines.size()
+	var lv_info: Dictionary = NasaDataLoader.get_launch_vehicle(str(snap.get("launch_vehicle_id", "")))
+	var orb_info: Dictionary = NasaDataLoader.get_orbit(str(snap.get("orbit_id", "")))
+	var zone_info: Dictionary = NasaDataLoader.get_landing_zone(str(snap.get("landing_zone_id", "")))
+	var lv_short: String = str(lv_info.get("name", "LV")).split(" (")[0]
+	var orb_short: String = "NRHO" if str(orb_info.get("id", "")).contains("nrho") else "LLO 100km"
+	var zone_short: String = str(zone_info.get("label", "Shackleton"))
+	check_reasons_label.text = "%s • %s • %s" % [lv_short, orb_short, zone_short]
 	check_reasons_label.tooltip_text = check_status_banner.tooltip_text

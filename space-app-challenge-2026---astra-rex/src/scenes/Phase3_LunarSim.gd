@@ -8,6 +8,7 @@ extends Control
 
 signal return_to_vab_requested()
 signal proceed_to_debrief_requested()
+signal descent_completed(survived: bool)
 
 enum SimPhase {
 	PRE_DESCENT = 0,
@@ -94,6 +95,7 @@ const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)
 
 var _height_grid: PackedFloat32Array = PackedFloat32Array()
 var _heightmap_rf_image: Image = null
+var _terrain_pbr_mat: StandardMaterial3D = null
 var _terrain_shader_mat: ShaderMaterial = null
 var _zone_marker_meshes: Dictionary = {}
 
@@ -130,6 +132,7 @@ var _debrief_highlight_pulse: float = 0.0
 
 func _ready() -> void:
 	_style_panels()
+	_enforce_double_sided_materials(lunar_world)
 	_build_shackleton_terrain()
 	_build_zone_markers()
 	_setup_raycast_exceptions()
@@ -138,6 +141,31 @@ func _ready() -> void:
 	_refresh_zone_buttons()
 	_refresh_ui_labels()
 	set_lunar_sim_active(false)
+
+
+func _enforce_double_sided_materials(root_node: Node) -> void:
+	if not is_instance_valid(root_node):
+		return
+	if root_node == terrain_mesh or root_node == thruster_plume:
+		return
+	if root_node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
+		if mesh_inst.material_override is BaseMaterial3D:
+			var override_dup: BaseMaterial3D = (mesh_inst.material_override as BaseMaterial3D).duplicate() as BaseMaterial3D
+			override_dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mesh_inst.material_override = override_dup
+		elif mesh_inst.mesh != null:
+			var surf_count: int = mesh_inst.mesh.get_surface_count()
+			for surface_idx: int in range(surf_count):
+				var mat: Material = mesh_inst.get_active_material(surface_idx)
+				if mat == null:
+					mat = mesh_inst.mesh.surface_get_material(surface_idx)
+				if mat is BaseMaterial3D:
+					var dup: BaseMaterial3D = (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+					dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+					mesh_inst.set_surface_override_material(surface_idx, dup)
+	for child: Node in root_node.get_children():
+		_enforce_double_sided_materials(child)
 
 
 func set_lunar_sim_active(active: bool) -> void:
@@ -216,6 +244,7 @@ func _physics_process(delta: float) -> void:
 			_apply_status_pill("ABORT: T/W < 1.0 — Insufficient Lunar Thrust", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			_refresh_ui_labels()
+			descent_completed.emit(false)
 		else:
 			_refresh_ui_labels()
 		return
@@ -233,6 +262,7 @@ func _physics_process(delta: float) -> void:
 			_update_plume_visual(false, 0.0)
 			_apply_status_pill("ABORT: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
+			descent_completed.emit(false)
 		_refresh_ui_labels()
 		return
 
@@ -311,6 +341,7 @@ func _on_touchdown() -> void:
 	MissionState.record_touchdown_slope(_touchdown_slope_deg)
 	_perform_celestial_raycasts()
 	_refresh_ui_labels()
+	descent_completed.emit(_sim_phase == SimPhase.LANDED_NOMINAL)
 
 
 func start_or_restart_descent() -> void:
@@ -395,9 +426,10 @@ func _build_shackleton_terrain() -> void:
 	# Build synchronized SurfaceTool ArrayMesh from exact same _height_grid
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
 
-	var normals: PackedVector3Array = PackedVector3Array()
-	normals.resize(GRID_RES * GRID_RES)
+	var slopes_deg: PackedFloat32Array = PackedFloat32Array()
+	slopes_deg.resize(GRID_RES * GRID_RES)
 	for iz: int in range(GRID_RES):
 		for ix: int in range(GRID_RES):
 			var ix0: int = maxi(0, ix - 1)
@@ -408,72 +440,55 @@ func _build_shackleton_terrain() -> void:
 			var h_r: float = _height_grid[iz * GRID_RES + ix1]
 			var h_u: float = _height_grid[iz0 * GRID_RES + ix]
 			var h_d: float = _height_grid[iz1 * GRID_RES + ix]
-			var span_x: float = float(ix1 - ix0)
-			var span_z: float = float(iz1 - iz0)
+			var span_x: float = maxf(1.0, float(ix1 - ix0))
+			var span_z: float = maxf(1.0, float(iz1 - iz0))
 			var n: Vector3 = Vector3((h_l - h_r) / span_x, 1.0, (h_u - h_d) / span_z).normalized()
-			normals[iz * GRID_RES + ix] = n
+			slopes_deg[iz * GRID_RES + ix] = rad_to_deg(acos(clampf(n.y, -1.0, 1.0)))
+
+	var add_v: Callable = func(gx: int, gz: int) -> void:
+		var idx: int = gz * GRID_RES + gx
+		var pos: Vector3 = Vector3(float(gx) - GRID_HALF_SPAN, _height_grid[idx], float(gz) - GRID_HALF_SPAN)
+		var u: float = float(gx) / float(GRID_RES)
+		var v: float = float(gz) / float(GRID_RES)
+		var col: Color = _regolith_color(_height_grid[idx], world_min_y, world_amp_y, slopes_deg[idx])
+		st.set_color(col)
+		st.set_uv(Vector2(u, v) * 16.0)
+		st.add_vertex(pos)
 
 	for iz: int in range(GRID_RES - 1):
 		for ix: int in range(GRID_RES - 1):
-			var i00: int = iz * GRID_RES + ix
-			var i10: int = iz * GRID_RES + (ix + 1)
-			var i01: int = (iz + 1) * GRID_RES + ix
-			var i11: int = (iz + 1) * GRID_RES + (ix + 1)
-
-			var v00: Vector3 = Vector3(float(ix) - GRID_HALF_SPAN, _height_grid[i00], float(iz) - GRID_HALF_SPAN)
-			var v10: Vector3 = Vector3(float(ix + 1) - GRID_HALF_SPAN, _height_grid[i10], float(iz) - GRID_HALF_SPAN)
-			var v01: Vector3 = Vector3(float(ix) - GRID_HALF_SPAN, _height_grid[i01], float(iz + 1) - GRID_HALF_SPAN)
-			var v11: Vector3 = Vector3(float(ix + 1) - GRID_HALF_SPAN, _height_grid[i11], float(iz + 1) - GRID_HALF_SPAN)
-
-			var uv00: Vector2 = Vector2(float(ix) / float(GRID_RES - 1), float(iz) / float(GRID_RES - 1))
-			var uv10: Vector2 = Vector2(float(ix + 1) / float(GRID_RES - 1), float(iz) / float(GRID_RES - 1))
-			var uv01: Vector2 = Vector2(float(ix) / float(GRID_RES - 1), float(iz + 1) / float(GRID_RES - 1))
-			var uv11: Vector2 = Vector2(float(ix + 1) / float(GRID_RES - 1), float(iz + 1) / float(GRID_RES - 1))
-
-			var c00: Color = _regolith_color(_height_grid[i00], world_min_y, world_amp_y)
-			var c10: Color = _regolith_color(_height_grid[i10], world_min_y, world_amp_y)
-			var c01: Color = _regolith_color(_height_grid[i01], world_min_y, world_amp_y)
-			var c11: Color = _regolith_color(_height_grid[i11], world_min_y, world_amp_y)
-
 			# Clockwise winding from +Y facing up
-			st.set_color(c00)
-			st.set_normal(normals[i00])
-			st.set_uv(uv00)
-			st.add_vertex(v00)
+			add_v.call(ix, iz)
+			add_v.call(ix + 1, iz)
+			add_v.call(ix, iz + 1)
 
-			st.set_color(c10)
-			st.set_normal(normals[i10])
-			st.set_uv(uv10)
-			st.add_vertex(v10)
+			add_v.call(ix + 1, iz)
+			add_v.call(ix + 1, iz + 1)
+			add_v.call(ix, iz + 1)
 
-			st.set_color(c01)
-			st.set_normal(normals[i01])
-			st.set_uv(uv01)
-			st.add_vertex(v01)
-
-			st.set_color(c10)
-			st.set_normal(normals[i10])
-			st.set_uv(uv10)
-			st.add_vertex(v10)
-
-			st.set_color(c11)
-			st.set_normal(normals[i11])
-			st.set_uv(uv11)
-			st.add_vertex(v11)
-
-			st.set_color(c01)
-			st.set_normal(normals[i01])
-			st.set_uv(uv01)
-			st.add_vertex(v01)
-
+	st.index()
+	st.generate_normals()
+	st.generate_tangents()
 	var mesh: ArrayMesh = st.commit()
 	terrain_mesh.mesh = mesh
 
+	_terrain_pbr_mat = StandardMaterial3D.new()
+	_terrain_pbr_mat.vertex_color_use_as_albedo = true
+	_terrain_pbr_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_terrain_pbr_mat.roughness = 0.92
+	_terrain_pbr_mat.metallic = 0.02
+	if ResourceLoader.exists("res://assets/terrain/regolith_albedo.webp"):
+		_terrain_pbr_mat.albedo_texture = ResourceLoader.load("res://assets/terrain/regolith_albedo.webp") as Texture2D
+	if ResourceLoader.exists("res://assets/terrain/regolith_normal.webp"):
+		_terrain_pbr_mat.normal_enabled = true
+		_terrain_pbr_mat.normal_texture = ResourceLoader.load("res://assets/terrain/regolith_normal.webp") as Texture2D
+		_terrain_pbr_mat.normal_scale = 0.85
+
 	var shader: Shader = Shader.new()
 	shader.code = """shader_type spatial;
-render_mode cull_back, specular_schlick_ggx;
+render_mode cull_disabled, specular_schlick_ggx;
 
-uniform float lidar_overlay : hint_range(0.0, 1.0) = 0.0;
+uniform float lidar_overlay : hint_range(0.0, 1.0) = 1.0;
 varying vec3 v_world_pos;
 varying vec3 v_world_normal;
 
@@ -500,18 +515,21 @@ void fragment() {
 """
 	_terrain_shader_mat = ShaderMaterial.new()
 	_terrain_shader_mat.shader = shader
-	_terrain_shader_mat.set_shader_parameter("lidar_overlay", 0.0)
-	terrain_mesh.material_override = _terrain_shader_mat
+	_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0)
+	terrain_mesh.material_override = _terrain_pbr_mat
 
 
-func _regolith_color(world_h: float, world_min_y: float, world_amp_y: float) -> Color:
+func _regolith_color(world_h: float, world_min_y: float, world_amp_y: float, slope_deg: float = 0.0) -> Color:
 	var t: float = clampf((world_h - world_min_y) / maxf(0.1, world_amp_y), 0.0, 1.0)
-	var c_low: Color = Color(0.17, 0.18, 0.21, 1.0)
-	var c_mid: Color = Color(0.36, 0.37, 0.39, 1.0)
-	var c_high: Color = Color(0.58, 0.59, 0.61, 1.0)
-	if t < 0.5:
-		return c_low.lerp(c_mid, t * 2.0)
-	return c_mid.lerp(c_high, (t - 0.5) * 2.0)
+	var c_low: Color = Color(0.22, 0.25, 0.30, 1.0)
+	var c_mid: Color = Color(0.46, 0.48, 0.52, 1.0)
+	var c_high: Color = Color(0.68, 0.70, 0.74, 1.0)
+	var base_col: Color = c_low.lerp(c_mid, t * 2.0) if t < 0.5 else c_mid.lerp(c_high, (t - 0.5) * 2.0)
+	if slope_deg > 15.0:
+		var hazard_t: float = clampf((slope_deg - 15.0) / 14.0, 0.18, 0.72)
+		var hazard_col: Color = Color(0.88, 0.42, 0.32, 1.0)
+		base_col = base_col.lerp(hazard_col, hazard_t)
+	return base_col
 
 
 func _build_zone_markers() -> void:
@@ -743,8 +761,12 @@ func _on_zone_selected(zone_id: String) -> void:
 
 
 func _on_lidar_overlay_toggled(toggled_on: bool) -> void:
-	if _terrain_shader_mat != null:
-		_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0 if toggled_on else 0.0)
+	if is_instance_valid(terrain_mesh):
+		if toggled_on and _terrain_shader_mat != null:
+			_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0)
+			terrain_mesh.material_override = _terrain_shader_mat
+		elif _terrain_pbr_mat != null:
+			terrain_mesh.material_override = _terrain_pbr_mat
 
 
 func _on_spe_storm_toggled(toggled_on: bool) -> void:
@@ -794,12 +816,17 @@ func _refresh_ui_labels() -> void:
 	var eng: bool = MissionState.engineer_mode
 
 	telemetry_zone_label.text = "Site: %s" % str(ZONE_LABELS.get(zone_id, zone_id))
-	telemetry_agl_label.text = "AGL: %.1f m  •  T/W %.2f" % [agl_m, MissionState.lunar_tw_ratio]
-	telemetry_vel_label.text = "Vz: %+.2f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
+	if eng:
+		telemetry_agl_label.text = "AGL: %.1f m  •  T/W %.2f" % [agl_m, MissionState.lunar_tw_ratio]
+		telemetry_vel_label.text = "Vz: %+.2f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
+	else:
+		var tw_txt: String = "SAFE LANDING T/W" if MissionState.lunar_tw_ratio >= 1.0 else "THRUST DEFICIT"
+		telemetry_agl_label.text = "AGL: %.0f m  •  %s" % [agl_m, tw_txt]
+		telemetry_vel_label.text = "Vel: %+.1f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
 	telemetry_slope_label.text = "Slope: %.1f°  •  TRN %s" % [_touchdown_slope_deg, "ON" if MissionState.has_lidar_trn else "OFF"]
 
-	var solar_state: String = "SHADOW (PSR)" if _solar_occluded else "SUNLIT (1.8°)"
-	telemetry_solar_label.text = "Solar: %s  •  %+.0f W" % [solar_state, MissionState.net_power_w]
+	var solar_state: String = ("SHADOW (PSR)" if _solar_occluded else "SUNLIT (1.8°)") if eng else ("POWER POSITIVE" if MissionState.net_power_w >= 0.0 else "SOLAR BLACKOUT")
+	telemetry_solar_label.text = "%s  •  %+.0f W" % [("Solar: %s" % solar_state) if eng else solar_state, MissionState.net_power_w]
 	telemetry_solar_label.add_theme_color_override("font_color", COLOR_OK if MissionState.net_power_w >= 0.0 else COLOR_CRIT)
 
 	var dte_state: String = "OCCLUDED" if _dte_occluded else ("NRHO RELAY" if MissionState.orbit_id_is_nrho() and zone_id == "crater_floor_psr" else "DTE CLEAR")
@@ -811,8 +838,12 @@ func _refresh_ui_labels() -> void:
 		cum_rad_msv = (5.0 * 1.15 * pow(0.5, MissionState.shielding_g_cm2 / 6.5)) + MissionState.spe_dose_msv + (MissionState.daily_gcr_msv * _elapsed_surface_days)
 	var rad_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
 	var rad_flag: String = "SPE STORM" if _spe_active else ("SAFE" if _safe_mode_active else "GCR")
-	telemetry_rad_label.text = "Rad (%s): %.1f / %.0f mSv" % [rad_flag, cum_rad_msv, rad_limit]
-	telemetry_rad_label.add_theme_color_override("font_color", COLOR_CRIT if (cum_rad_msv > rad_limit or (_spe_active and not MissionState.has_radhard_obc)) else (COLOR_WARN if _spe_active else COLOR_OK))
+	var rad_hazard: bool = (cum_rad_msv > rad_limit) or (_spe_active and not MissionState.has_radhard_obc)
+	if eng:
+		telemetry_rad_label.text = "Rad (%s): %.1f / %.0f mSv" % [rad_flag, cum_rad_msv, rad_limit]
+	else:
+		telemetry_rad_label.text = "%s (%s): %.0f mSv" % ["RAD HAZARD" if rad_hazard else "RAD SAFE", rad_flag, cum_rad_msv]
+	telemetry_rad_label.add_theme_color_override("font_color", COLOR_CRIT if rad_hazard else (COLOR_WARN if _spe_active else COLOR_OK))
 
 	var op_life: float = MissionState.mission_lifetime_days
 	var ops_status: String = "ALIVE" if (_sim_phase == SimPhase.LANDED_NOMINAL and _elapsed_surface_days <= op_life) else ("OFFLINE" if _elapsed_surface_days > op_life else "ACTIVE")

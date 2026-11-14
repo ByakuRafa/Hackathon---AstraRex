@@ -206,7 +206,8 @@ text_overrun_behavior = 3
 
 [node name="BtnProceedVAB" type="Button" parent="Margin/MainColumns/TargetOrbitPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
+visible = false
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Proceed to 3D VAB  ->"
+theme_override_font_sizes/font_size = 13
+text = "2. Assemble in VAB  ->"

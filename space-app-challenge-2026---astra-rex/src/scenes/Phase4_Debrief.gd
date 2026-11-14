@@ -187,7 +187,10 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 func _make_action_row(text_val: String, accent_col: Color, tip: String) -> Label:
 	var lbl: Label = Label.new()
 	lbl.text = text_val
+	lbl.custom_minimum_size = Vector2(460, 0)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.max_lines_visible = 3
+	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", COLOR_WHITE)
 	lbl.tooltip_text = tip
@@ -270,6 +273,21 @@ func _render_benchmark_grid(report: Dictionary) -> void:
 		"Cap %.0f mSv" % NasaDataLoader.get_mission_dose_limit_msv(),
 		COLOR_OK if (dose_msv <= NasaDataLoader.get_mission_dose_limit_msv() and life_d >= 14.0) else COLOR_WARN
 	)
+	sync_engineer_mode(MissionState.engineer_mode)
+
+
+func sync_engineer_mode(eng: bool) -> void:
+	for btn_name: String in ["%BtnExportCSV", "%BtnExportJSON"]:
+		var b: Button = get_node_or_null(btn_name) as Button
+		if b != null:
+			b.disabled = not eng
+			b.modulate = Color(1.0, 1.0, 1.0, 1.0) if eng else Color(0.55, 0.62, 0.72, 0.45)
+	var iterate_btn: Button = get_node_or_null("%BtnIterateVAB") as Button
+	if iterate_btn != null:
+		iterate_btn.visible = false
+	var exp_bar: Control = get_node_or_null("%ExportBar") as Control
+	if exp_bar != null:
+		exp_bar.visible = false
 
 
 func _add_grid_header(title: String) -> void:
@@ -324,6 +342,8 @@ func _on_chart_point_hovered(pt: Dictionary) -> void:
 
 
 func _on_export_pressed(fmt: String) -> void:
+	if not MissionState.engineer_mode:
+		return
 	ParetoSolver.export_telemetry_report(fmt)
 
 
@@ -336,7 +356,8 @@ func _on_report_exported(file_path_or_name: String, fmt: String) -> void:
 func _on_copy_code_pressed() -> void:
 	var code: String = MissionState.export_design_code()
 	design_code_edit.text = code
-	DisplayServer.clipboard_set(code)
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.clipboard_set(code)
 	export_status_label.text = "Design code copied to clipboard."
 	export_status_label.add_theme_color_override("font_color", COLOR_ACCENT)
 
@@ -377,9 +398,37 @@ func _style_panels() -> void:
 		sb.set_corner_radius_all(6)
 		sb.content_margin_left = 14
 		sb.content_margin_right = 14
-		sb.content_margin_top = 10
-		sb.content_margin_bottom = 10
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
 		panel.add_theme_stylebox_override("panel", sb)
+
+	_ensure_wrapped_label_widths(primary_status_card)
+	if is_instance_valid(bottlenecks_vbox) and not (bottlenecks_vbox.get_parent() is ScrollContainer):
+		var vbox_parent: Node = bottlenecks_vbox.get_parent()
+		var idx: int = bottlenecks_vbox.get_index()
+		var scroll: ScrollContainer = ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(360, 120)
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		vbox_parent.remove_child(bottlenecks_vbox)
+		vbox_parent.add_child(scroll)
+		vbox_parent.move_child(scroll, idx)
+		scroll.add_child(bottlenecks_vbox)
+		bottlenecks_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _ensure_wrapped_label_widths(node: Node) -> void:
+	if node is Label:
+		var lbl: Label = node as Label
+		if lbl.autowrap_mode != TextServer.AUTOWRAP_OFF:
+			if lbl.custom_minimum_size.x < 460.0:
+				lbl.custom_minimum_size = Vector2(460.0, lbl.custom_minimum_size.y)
+			if lbl.name == "PrimaryCauseLabel":
+				lbl.max_lines_visible = 3
+				lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+				lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	for child: Node in node.get_children():
+		_ensure_wrapped_label_widths(child)
 
 
 func _style_cta_button(btn: Button) -> void:
