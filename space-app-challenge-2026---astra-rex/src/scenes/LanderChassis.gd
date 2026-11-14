@@ -85,6 +85,7 @@ var _active_slot_records: Array[Dictionary] = []
 
 func _ready() -> void:
 	_register_mounts()
+	_enforce_double_sided_materials(self)
 	if not MissionState.state_updated.is_connected(_on_state_updated):
 		MissionState.state_updated.connect(_on_state_updated)
 	if not MissionState.preset_loaded.is_connected(_on_preset_loaded):
@@ -223,9 +224,30 @@ func _get_or_instantiate_part(part_id: String, model_path: String, mount_node: M
 		return null
 
 	node_3d.name = "Mesh_%s" % part_id
+	_enforce_double_sided_materials(node_3d)
 	mount_node.add_child(node_3d)
 	_instanced_parts[part_id] = node_3d
 	return node_3d
+
+
+func _enforce_double_sided_materials(root_node: Node) -> void:
+	if not is_instance_valid(root_node):
+		return
+	if root_node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
+		if mesh_inst.material_override is BaseMaterial3D:
+			(mesh_inst.material_override as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+		if mesh_inst.mesh != null:
+			var surf_count: int = mesh_inst.mesh.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var override_mat: Material = mesh_inst.get_surface_override_material(surf_idx)
+				if override_mat is BaseMaterial3D:
+					(override_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+				var surf_mat: Material = mesh_inst.mesh.surface_get_material(surf_idx)
+				if surf_mat is BaseMaterial3D:
+					(surf_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+	for child: Node in root_node.get_children():
+		_enforce_double_sided_materials(child)
 
 
 func get_active_slot_records() -> Array[Dictionary]:

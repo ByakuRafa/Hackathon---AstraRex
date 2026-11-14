@@ -110,13 +110,13 @@ unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
 
 [node name="VABGantry" parent="VABWorld" instance=ExtResource("3_gantry")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 0, -7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -12.5)
 
 [node name="SLSBlock1Ref" parent="VABWorld" instance=ExtResource("4_sls")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0, -11.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, -15.5)
 
 [node name="DSNDishRef" parent="VABWorld" instance=ExtResource("5_dsn")]
-transform = Transform3D(0.45, 0, 0, 0, 0.45, 0, 0, 0, 0.45, -12, 0, -12)
+transform = Transform3D(0.318198, 0, 0.318198, 0, 0.45, 0, -0.318198, 0, 0.318198, -16.5, 0, -7.5)
 
 [node name="CameraPivot" type="Node3D" parent="VABWorld"]
 unique_name_in_owner = true

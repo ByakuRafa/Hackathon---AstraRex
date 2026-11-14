@@ -92,6 +92,7 @@ var _auto_turntable: bool = false
 
 
 func _ready() -> void:
+	_enforce_double_sided_materials(vab_world)
 	_style_panels()
 	_style_cta_button()
 	_build_category_tabs()
@@ -101,6 +102,26 @@ func _ready() -> void:
 
 	_latest_slots = lander_chassis.get_active_slot_records()
 	_refresh_equipped_states(MissionState.get_telemetry_snapshot())
+
+
+func _enforce_double_sided_materials(root_node: Node) -> void:
+	if not is_instance_valid(root_node):
+		return
+	if root_node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
+		if mesh_inst.material_override is BaseMaterial3D:
+			(mesh_inst.material_override as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+		if mesh_inst.mesh != null:
+			var surf_count: int = mesh_inst.mesh.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var override_mat: Material = mesh_inst.get_surface_override_material(surf_idx)
+				if override_mat is BaseMaterial3D:
+					(override_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+				var surf_mat: Material = mesh_inst.mesh.surface_get_material(surf_idx)
+				if surf_mat is BaseMaterial3D:
+					(surf_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+	for child: Node in root_node.get_children():
+		_enforce_double_sided_materials(child)
 
 
 func _process(delta: float) -> void:
