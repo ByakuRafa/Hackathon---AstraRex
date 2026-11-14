@@ -1,0 +1,210 @@
+{
+  "metadata": {
+    "reference": "NASA Systems Engineering Handbook (NASA SP-2016-6105 Rev2)",
+    "mga_rule": "Section 4.3 & Appendix G: Technical Resource Management & Mass Growth Allowance (MGA)",
+    "equations": {
+      "tsiolkovsky_dv": "dV = Isp * 9.80665 * ln(m0 / mf)",
+      "solar_power": "P = P0 * cos(theta_incidence) * (1 - shadow_occlusion)",
+      "lunar_tw_ratio": "T/W = F_thrust / (m0 * 1.625)"
+    }
+  },
+  "presets_for_judges": {
+    "preset_1_artemis_optimal": [
+      "chassis_clps",
+      "prop_chem_biprop",
+      "pwr_rtg_mmrtg",
+      "comm_hga_ka",
+      "avionics_lidar_trn",
+      "pay_drill_trident",
+      "pay_sar_lband"
+    ],
+    "preset_2_mass_failure": [
+      "chassis_clps",
+      "prop_ion_sep",
+      "pwr_solar_lro",
+      "comm_uga_s",
+      "pay_drill_trident",
+      "pay_spec_msolo",
+      "shield_heavy"
+    ],
+    "preset_3_sandbox": [
+      "chassis_clps"
+    ]
+  },
+  "subsystems": [
+    {
+      "id": "chassis_clps",
+      "subsystem": "bus",
+      "name": "CLPS Polar Lander Bus",
+      "mass_dry_kg": 420.0,
+      "mga_percent": 0.15,
+      "power_w": -35.0,
+      "cost_m_usd": 28.0,
+      "mount_point": "Mount_Chassis",
+      "model_path": "res://assets/models/lander_bus.glb",
+      "nasa_citation": "NASA SP-2016-6105 Rev2, Sec 4.1: Pre-Phase A Baseline Structural Bus & MGA"
+    },
+    {
+      "id": "prop_chem_biprop",
+      "subsystem": "propulsion",
+      "name": "Bipropellant Descent Engine (MMH/NTO)",
+      "mass_dry_kg": 65.0,
+      "mga_percent": 0.15,
+      "propellant_capacity_kg": 850.0,
+      "isp_s": 318.0,
+      "thrust_n": 4500.0,
+      "power_w": -20.0,
+      "cost_m_usd": 14.5,
+      "mount_point": "Mount_Propulsion",
+      "model_path": "res://assets/models/engine_biprop.glb",
+      "nasa_citation": "NASA SP-2016-6105 Rev2, Sec 4.4: High-Thrust Terminal Descent Trade Study"
+    },
+    {
+      "id": "prop_ion_sep",
+      "subsystem": "propulsion",
+      "name": "Solar Electric Hall Thruster (Xenon)",
+      "mass_dry_kg": 48.0,
+      "mga_percent": 0.2,
+      "propellant_capacity_kg": 180.0,
+      "isp_s": 1650.0,
+      "thrust_n": 0.25,
+      "power_w": -1350.0,
+      "cost_m_usd": 22.0,
+      "mount_point": "Mount_Propulsion",
+      "model_path": "res://assets/models/engine_ion.glb",
+      "nasa_citation": "NASA SP-2016-6105 Rev2, Sec 4.4: High-Isp Low-Thrust Orbital Transfer Trade-Off (Cannot Soft-Land on Moon)"
+    },
+    {
+      "id": "pwr_solar_lro",
+      "subsystem": "power",
+      "name": "Articulated Vertical Solar Array",
+      "mass_dry_kg": 38.0,
+      "mga_percent": 0.15,
+      "power_w": 480.0,
+      "cost_m_usd": 8.5,
+      "requires_sunlight": true,
+      "mount_point": "Mount_Power_Port",
+      "model_path": "res://assets/models/solar_array.glb",
+      "nasa_citation": "LRO / CLPS South Pole Illumination Constraint: Subject to 88 deg incidence angle and crater horizon shadows"
+    },
+    {
+      "id": "pwr_rtg_mmrtg",
+      "subsystem": "power",
+      "name": "MMRTG Radioisotope Generator (Pu-238)",
+      "mass_dry_kg": 45.0,
+      "mga_percent": 0.15,
+      "power_w": 110.0,
+      "thermal_output_w": 2000.0,
+      "cost_m_usd": 42.0,
+      "requires_sunlight": false,
+      "mount_point": "Mount_Power_Port",
+      "model_path": "res://assets/models/rtg_cassini.glb",
+      "nasa_citation": "NASA SP-2016-6105 Rev2: Continuous Power & Thermal Survival in Permanently Shadowed Regions (PSRs)"
+    },
+    {
+      "id": "pwr_batt_liion",
+      "subsystem": "power",
+      "name": "Cryogenic Li-Ion Battery Pack (48 kWh)",
+      "mass_dry_kg": 140.0,
+      "mga_percent": 0.15,
+      "power_w": 0.0,
+      "energy_capacity_kwh": 48.0,
+      "cost_m_usd": 11.0,
+      "requires_sunlight": false,
+      "mount_point": "Mount_Power_Starboard",
+      "model_path": "res://assets/models/battery_pack.glb",
+      "nasa_citation": "NASA CLPS Lunar Night Survival Trade Study: High-Specific-Energy Storage (>= 45 kWh)"
+    },
+    {
+      "id": "comm_hga_ka",
+      "subsystem": "comms",
+      "name": "DSN High-Gain Parabolic Antenna (Ka-Band)",
+      "mass_dry_kg": 18.0,
+      "mga_percent": 0.15,
+      "power_w": -65.0,
+      "data_rate_mbps": 100.0,
+      "cost_m_usd": 9.0,
+      "mount_point": "Mount_Comms_Antenna",
+      "model_path": "res://assets/models/antenna_hga.glb",
+      "nasa_citation": "NASA Deep Space Network (DSN) Link Budget: Requires Direct-to-Earth (DTE) Line of Sight > 0 deg elevation"
+    },
+    {
+      "id": "comm_uga_s",
+      "subsystem": "comms",
+      "name": "S-Band Low-Gain Omni Antenna",
+      "mass_dry_kg": 6.5,
+      "mga_percent": 0.15,
+      "power_w": -18.0,
+      "data_rate_mbps": 0.5,
+      "cost_m_usd": 3.2,
+      "mount_point": "Mount_Comms_Antenna",
+      "model_path": "res://assets/models/antenna_omni.glb",
+      "nasa_citation": "NASA DSN S-Band Contingency Telemetry: Low Bandwidth Direct-to-Earth Link"
+    },
+    {
+      "id": "avionics_lidar_trn",
+      "subsystem": "avionics",
+      "name": "Hazard Avoidance LiDAR & TRN Sensor",
+      "mass_dry_kg": 12.5,
+      "mga_percent": 0.18,
+      "power_w": -45.0,
+      "max_safe_slope_deg": 15.0,
+      "cost_m_usd": 16.0,
+      "mount_point": "Mount_Avionics",
+      "model_path": "res://assets/models/sensor_lidar.glb",
+      "nasa_citation": "NASA Splice / Safe & Precise Landing (SPL): Autonomous Terrain Relative Navigation (< 15 deg slope)"
+    },
+    {
+      "id": "pay_drill_trident",
+      "subsystem": "payload",
+      "name": "TRIDENT Regolith Ice Drill",
+      "mass_dry_kg": 22.0,
+      "mga_percent": 0.2,
+      "power_w": -85.0,
+      "science_points": 45.0,
+      "cost_m_usd": 14.0,
+      "mount_point": "Mount_Payload_Top",
+      "model_path": "res://assets/models/payload_drill.glb",
+      "nasa_citation": "NASA CLPS VIPER/PRIME-1 Payload Heritage: Subsurface volatile extraction in Shackleton Crater"
+    },
+    {
+      "id": "pay_spec_msolo",
+      "subsystem": "payload",
+      "name": "MSolo Quadrupole Mass Spectrometer",
+      "mass_dry_kg": 10.0,
+      "mga_percent": 0.2,
+      "power_w": -35.0,
+      "science_points": 35.0,
+      "cost_m_usd": 7.5,
+      "mount_point": "Mount_Payload_Side",
+      "model_path": "res://assets/models/payload_msolo.glb",
+      "nasa_citation": "NASA PRIME-1 / MSolo Heritage: Mass spectrometry of lunar polar water-ice volatiles"
+    },
+    {
+      "id": "pay_sar_lband",
+      "subsystem": "payload",
+      "name": "Mini-RF Synthetic Aperture Radar (SAR)",
+      "mass_dry_kg": 14.0,
+      "mga_percent": 0.15,
+      "power_w": -55.0,
+      "science_points": 40.0,
+      "cost_m_usd": 11.0,
+      "mount_point": "Mount_Payload_Side",
+      "model_path": "res://assets/models/payload_sar.glb",
+      "nasa_citation": "LRO Mini-RF Heritage: Water-ice backscatter mapping inside Permanently Shadowed Regions"
+    },
+    {
+      "id": "shield_heavy",
+      "subsystem": "shielding",
+      "name": "Polyethylene & Aluminum Radiation Shielding",
+      "mass_dry_kg": 95.0,
+      "mga_percent": 0.15,
+      "shielding_g_cm2": 12.0,
+      "power_w": 0.0,
+      "cost_m_usd": 6.5,
+      "mount_point": "Mount_Shielding",
+      "model_path": "res://assets/models/shield_heavy.glb",
+      "nasa_citation": "NASA OSDR RadLab & SP-2016-6105: SPE/GCR Radiation Dose Attenuation Shielding (g/cm2)"
+    }
+  ]
+}
