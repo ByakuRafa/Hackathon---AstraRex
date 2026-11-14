@@ -270,7 +270,7 @@ func _verify_presets_and_phase_flow(main_node: Control) -> void:
 		_fail("Phase 0 CTA text mismatch: %s" % btn_next.text)
 	btn_next.pressed.emit()
 	await tree.process_frame
-	if shell._current_phase_index != 1 or btn_next.text != "3. Launch Lunar Descent ->":
+	if shell._current_phase_index != 1 or btn_next.text != "3. SIR: Launch Descent ->":
 		_fail("Phase 1 CTA transition mismatch: phase=%d text=%s" % [shell._current_phase_index, btn_next.text])
 	btn_next.pressed.emit()
 	await tree.process_frame
@@ -393,8 +393,13 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 		return
 	main_node.call("set_audio_muted", false)
 
+	for idx_phase: int in range(hud._completed_phases.size()):
+		hud._completed_phases[idx_phase] = false
 	main_node.call("_switch_to_phase", 0, false)
 	await get_tree().process_frame
+	if not String(hud.btn_phase_1.text).begins_with("● ") or not String(hud.btn_phase_2.text).begins_with("○ "):
+		_fail("Stepper initial/reset state mismatch at Phase 1: [%s | %s]" % [hud.btn_phase_1.text, hud.btn_phase_2.text])
+		return
 	var space_ev: InputEventKey = InputEventKey.new()
 	space_ev.keycode = KEY_SPACE
 	space_ev.pressed = true
@@ -404,6 +409,78 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 		_fail("Spacebar judge flow shortcut did not advance Phase 1 -> Phase 2 (phase=%d)" % int(main_node._current_phase_index))
 		return
 	_pass("MUTE toggle and Space/Enter 45s phase-advance shortcut verified (Phase 1 -> Phase 2)")
+
+	# 4b. Verify Blueprint §4.2 micro-affordances (Stepper states, Skip button, 4s descent, FeedbackChip, Empty VAB pin, Phase 4 smart empty + 3s idle pulse)
+	var p1_tab_text: String = String(hud.btn_phase_1.text)
+	var p2_tab_text: String = String(hud.btn_phase_2.text)
+	var p3_tab_text: String = String(hud.btn_phase_3.text)
+	if not p1_tab_text.begins_with("✔ ") or not p2_tab_text.begins_with("● ") or not p3_tab_text.begins_with("○ "):
+		_fail("Stepper prefix states mismatch at Phase 2: [%s | %s | %s]" % [p1_tab_text, p2_tab_text, p3_tab_text])
+		return
+
+	var p2_vab: Control = main_node.get_node_or_null("%Phase2_VAB") as Control
+	if p2_vab == null:
+		p2_vab = main_node.phase_2
+	var found_empty_pin: bool = false
+	for pin_info: Dictionary in p2_vab._diegetic_pins:
+		var pin_btn: Button = pin_info.get("button") as Button
+		if pin_btn != null and bool(pin_btn.get_meta("is_empty_slot", false)) and pin_btn.text.begins_with("◌ "):
+			found_empty_pin = true
+			break
+	if not found_empty_pin:
+		_fail("Phase 2 VAB did not render dashed/ghost empty diegetic slot pin (◌ <SLOT>)")
+		return
+
+	MissionState.toggle_subsystem("shield_heavy")
+	await get_tree().process_frame
+	if String(hud._last_chip_text).is_empty() or not hud._feedback_chip.visible:
+		_fail("MainHUD FeedbackChip did not appear on subsystem toggle")
+		return
+	MissionState.toggle_subsystem("shield_heavy")
+	await get_tree().process_frame
+
+	var skip_btn: Button = main_node.btn_skip_debrief
+	if not is_instance_valid(skip_btn) or skip_btn.text != "Skip ⏭" or not skip_btn.visible:
+		_fail("Skip ⏭ button missing or hidden during Phase 2 VAB")
+		return
+	main_node.call("_switch_to_phase", 2, false)
+	await get_tree().process_frame
+	if not skip_btn.visible:
+		_fail("Skip ⏭ button hidden during Phase 3 Lunar Sim")
+		return
+	skip_btn.pressed.emit()
+	await get_tree().process_frame
+	if int(main_node._current_phase_index) != 3 or skip_btn.visible:
+		_fail("Skip ⏭ button failed to jump to Phase 4 Debrief or hide afterward (phase=%d)" % int(main_node._current_phase_index))
+		return
+
+	var p3_sim: Phase3LunarSim = main_node.get_node("%Phase3_LunarSim") as Phase3LunarSim
+	if not is_equal_approx(float(p3_sim.DESCENT_TARGET_DURATION_S), 4.0):
+		_fail("Phase 3 DESCENT_TARGET_DURATION_S expected 4.0s, got %.2f" % float(p3_sim.DESCENT_TARGET_DURATION_S))
+		return
+
+	MissionState.apply_preset(3)
+	await get_tree().process_frame
+	main_node.call("_switch_to_phase", 3, false)
+	for _w: int in range(30):
+		await get_tree().process_frame
+		if not ParetoSolver.is_solving:
+			break
+	await get_tree().process_frame
+	var status_msg: String = String(p4.solver_status_label.text)
+	if not status_msg.contains("Load a preset (P1/P2) to evaluate the Pareto frontier"):
+		_fail("Phase 4 smart empty state prompt missing under Preset 3: %s" % status_msg)
+		return
+
+	main_node._idle_seconds = 3.1
+	main_node._process(0.02)
+	await get_tree().process_frame
+	if not bool(hud._preset_pulse_active):
+		_fail("3-second idle #8B6CFF preset guidance pulse did not activate")
+		return
+	MissionState.apply_preset(1)
+	await get_tree().process_frame
+	_pass("Blueprint §4.2 micro-affordances verified (Stepper ✔/●/○, SIR CTA, Skip ⏭, 4.0s descent, 1.5s FeedbackChip, ◌ empty pin, Phase 4 smart empty & 3s #8B6CFF pulse)")
 
 	# 5. Verify packaged WebGL artifact & vercel.json (< 15 MB budget)
 	var zip_path: String = ProjectSettings.globalize_path("res://build/astra_rex_itch_webgl.zip")

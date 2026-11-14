@@ -58,35 +58,35 @@ theme_override_constants/separation = 4
 
 [node name="BtnPhase1" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(118, 24)
+custom_minimum_size = Vector2(126, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "1. Formulation"
+text = "● 1. Formulation"
 
 [node name="BtnPhase2" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(88, 24)
+custom_minimum_size = Vector2(98, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "2. 3D VAB"
+text = "○ 2. 3D VAB"
 
 [node name="BtnPhase3" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(102, 24)
+custom_minimum_size = Vector2(114, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "3. Lunar Sim"
+text = "○ 3. Lunar Sim"
 
 [node name="BtnPhase4" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(128, 24)
+custom_minimum_size = Vector2(138, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "4. Pareto Debrief"
+text = "○ 4. Pareto Debrief"
 
 [node name="Spacer" type="Control" parent="RootVBox/TopControlRow"]
 layout_mode = 2

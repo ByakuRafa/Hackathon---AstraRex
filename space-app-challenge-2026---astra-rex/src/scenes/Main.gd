@@ -37,6 +37,7 @@ const SFX_PATHS: Dictionary = {
 @onready var primary_next_step_btn: Button = %PrimaryNextStepBtn
 
 var btn_mute_audio: Button = null
+var btn_skip_debrief: Button = null
 
 var _current_phase_index: int = 0
 var _next_step_glow_active: bool = false
@@ -44,6 +45,10 @@ var _glow_phase: float = 0.0
 var _cta_style_normal: StyleBoxFlat
 var _cta_style_hover: StyleBoxFlat
 var _phase_tween: Tween = null
+
+var _has_evaluated_mission: bool = false
+var _idle_seconds: float = 0.0
+var _ready_initialized: bool = false
 
 var _sfx_players: Dictionary = {}
 var _audio_muted: bool = false
@@ -55,6 +60,7 @@ func _ready() -> void:
 	_setup_audio_players()
 	_setup_bottom_bar_styles()
 	_setup_mute_button()
+	_setup_skip_button()
 	_apply_tabular_fonts()
 
 	main_hud.phase_requested.connect(_on_phase_requested)
@@ -77,6 +83,7 @@ func _ready() -> void:
 
 	_switch_to_phase(0, false)
 	_on_mission_state_updated(MissionState.get_telemetry_snapshot())
+	_ready_initialized = true
 
 
 func _exit_tree() -> void:
@@ -88,12 +95,32 @@ func _exit_tree() -> void:
 	_sfx_players.clear()
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey or event is InputEventMouseButton or event is InputEventMouseMotion:
+		_idle_seconds = 0.0
+		if is_instance_valid(main_hud):
+			main_hud.set_preset_guidance_pulse(0.0, false)
+
+
 func _process(delta: float) -> void:
-	if not _next_step_glow_active or _cta_style_normal == null:
-		return
+	_idle_seconds += delta
 	# Exclusive 1.2s smooth sine cycle on the Single Guidance Pulse (#8B6CFF)
 	_glow_phase += delta * (TAU / 1.2)
 	var pulse: float = 0.50 + 0.50 * sin(_glow_phase)
+
+	if not _has_evaluated_mission and _idle_seconds >= 3.0:
+		if is_instance_valid(main_hud):
+			main_hud.set_preset_guidance_pulse(pulse, true)
+		if _cta_style_normal != null:
+			_cta_style_normal.border_color = COL_CYAN
+			_cta_style_normal.bg_color = Color(0.03, 0.22, 0.36, 0.96)
+		return
+
+	if is_instance_valid(main_hud):
+		main_hud.set_preset_guidance_pulse(0.0, false)
+
+	if not _next_step_glow_active or _cta_style_normal == null:
+		return
 	_cta_style_normal.border_color = Color(COL_GUIDE_VIOLET.r, COL_GUIDE_VIOLET.g, COL_GUIDE_VIOLET.b, 0.48 + 0.52 * pulse)
 	_cta_style_normal.bg_color = Color(0.14 + 0.12 * pulse, 0.10 + 0.08 * pulse, 0.32 + 0.18 * pulse, 0.96)
 
@@ -136,7 +163,7 @@ func _setup_audio_players() -> void:
 
 
 func play_sfx(sfx_name: String) -> void:
-	if _audio_muted:
+	if _audio_muted or DisplayServer.get_name() == "headless":
 		return
 	var player: AudioStreamPlayer = _sfx_players.get(sfx_name, null) as AudioStreamPlayer
 	if is_instance_valid(player):
@@ -149,6 +176,8 @@ func set_loop_sfx(sfx_name: String, active: bool) -> void:
 		return
 	if sfx_name == "thruster_burn":
 		_thruster_loop_active = active
+	if DisplayServer.get_name() == "headless":
+		return
 	if _audio_muted or not active:
 		if player.playing:
 			player.stop()
@@ -205,6 +234,33 @@ func _setup_mute_button() -> void:
 			play_sfx("ui_hover_tick")
 	)
 	utility_cluster.add_child(btn_mute_audio)
+
+
+func _setup_skip_button() -> void:
+	var hbox: HBoxContainer = get_node_or_null("MainVBox/BottomActionBar/Margin/HBox") as HBoxContainer
+	if not is_instance_valid(hbox) or not is_instance_valid(primary_next_step_btn):
+		return
+	btn_skip_debrief = Button.new()
+	btn_skip_debrief.name = "BtnSkipToDebrief"
+	btn_skip_debrief.focus_mode = Control.FOCUS_NONE
+	btn_skip_debrief.custom_minimum_size = Vector2(68, 26)
+	btn_skip_debrief.text = "Skip ⏭"
+	btn_skip_debrief.tooltip_text = "Skip directly to Phase 4: Pareto Optimization & Engineering Debrief using active MissionState."
+	btn_skip_debrief.add_theme_font_size_override("font_size", 12)
+	btn_skip_debrief.visible = false
+
+	var ghost_norm: StyleBoxFlat = _make_util_style(Color(0.055, 0.086, 0.141, 0.45), BrandStyle.BTN_BORDER)
+	var ghost_hover: StyleBoxFlat = _make_util_style(Color(0.082, 0.133, 0.224, 0.88), COL_NEON_YELLOW)
+	btn_skip_debrief.add_theme_stylebox_override("normal", ghost_norm)
+	btn_skip_debrief.add_theme_stylebox_override("focus", ghost_norm)
+	btn_skip_debrief.add_theme_stylebox_override("hover", ghost_hover)
+	btn_skip_debrief.add_theme_stylebox_override("pressed", ghost_hover)
+	btn_skip_debrief.add_theme_color_override("font_color", BrandStyle.TEXT_HEADER)
+	btn_skip_debrief.add_theme_color_override("font_hover_color", COL_NEON_YELLOW)
+
+	btn_skip_debrief.pressed.connect(_on_skip_to_debrief_pressed)
+	hbox.add_child(btn_skip_debrief)
+	hbox.move_child(btn_skip_debrief, primary_next_step_btn.get_index())
 
 
 func _apply_tabular_fonts() -> void:
@@ -287,13 +343,41 @@ func _on_phase_requested(phase_index: int) -> void:
 	_switch_to_phase(phase_index)
 
 
-func _on_preset_loaded(_preset_index: int, _preset_name: String) -> void:
+func _on_preset_loaded(preset_index: int, _preset_name: String) -> void:
+	_idle_seconds = 0.0
+	_has_evaluated_mission = (preset_index != 3)
+	if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):
+		phase4_debrief.set_mission_evaluated(_has_evaluated_mission)
+	if is_instance_valid(main_hud):
+		main_hud.set_preset_guidance_pulse(0.0, false)
 	_set_next_step_glow(true)
 	play_sfx("quindar_beep")
 
 
 func _on_descent_completed(_survived: bool) -> void:
+	_idle_seconds = 0.0
+	_has_evaluated_mission = true
+	if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):
+		phase4_debrief.set_mission_evaluated(true)
+	if is_instance_valid(main_hud):
+		main_hud.mark_phase_completed(2)
+		main_hud.set_preset_guidance_pulse(0.0, false)
 	_set_next_step_glow(true)
+
+
+func _on_skip_to_debrief_pressed() -> void:
+	_idle_seconds = 0.0
+	if MissionState.selected_subsystem_ids.size() > 1:
+		_has_evaluated_mission = true
+		if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):
+			phase4_debrief.set_mission_evaluated(true)
+	if is_instance_valid(main_hud):
+		main_hud.mark_phase_completed(_current_phase_index)
+		main_hud.set_preset_guidance_pulse(0.0, false)
+	_set_next_step_glow(false)
+	play_sfx("quindar_beep")
+	set_loop_sfx("thruster_burn", false)
+	_switch_to_phase(3)
 
 
 func _set_next_step_glow(enabled: bool) -> void:
@@ -325,13 +409,15 @@ func _switch_to_phase(phase_index: int, play_transition_tween: bool = true) -> v
 
 
 func _update_next_step_button() -> void:
+	if is_instance_valid(btn_skip_debrief):
+		btn_skip_debrief.visible = (_current_phase_index == 1 or _current_phase_index == 2)
 	match _current_phase_index:
 		0:
 			primary_next_step_btn.text = "2. Assemble in VAB ->"
 			primary_next_step_btn.tooltip_text = "Proceed to Phase 2: 3D Vehicle Assembly Building (Shortcut: Space / Enter)."
 		1:
-			primary_next_step_btn.text = "3. Launch Lunar Descent ->"
-			primary_next_step_btn.tooltip_text = "Proceed to Phase 3: South Pole TLI & Terminal Descent (Shortcut: Space / Enter)."
+			primary_next_step_btn.text = "3. SIR: Launch Descent ->"
+			primary_next_step_btn.tooltip_text = "NASA SP-2016-6105 Rev2 — System Integration Review (SIR): Proceed to Phase 3 South Pole Terminal Descent (Shortcut: Space / Enter)."
 		2:
 			primary_next_step_btn.text = "4. Open Pareto Debrief ->"
 			primary_next_step_btn.tooltip_text = "Proceed to Phase 4: Pareto Optimization & Engineering Debrief (Shortcut: Space / Enter)."
@@ -401,11 +487,11 @@ func _on_mission_state_updated(snap: Dictionary) -> void:
 		system_status_badge.tooltip_text = "Mission compatible with launcher, but surface hazards or power shortfalls remain."
 	else:
 		if engineer_mode:
-			system_status_badge.text = "✔ NOMINAL • T/W %.2f | dV %.0f m/s | %.0f kg" % [tw, dv, m0]
+			system_status_badge.text = "✔ SIR APPROVED • T/W %.2f | dV %.0f m/s | %.0f kg" % [tw, dv, m0]
 		else:
-			system_status_badge.text = "✔ PASS • READY (SAFE T/W & LAUNCH MARGIN)"
+			system_status_badge.text = "✔ SIR APPROVED • PASS (SAFE T/W & MARGIN)"
 		system_status_badge.add_theme_color_override("font_color", COL_EMERALD)
-		system_status_badge.tooltip_text = "All launch, orbital Delta-V, lunar T/W, and night survival checks nominal (NASA SP-2016-6105 Rev2)."
+		system_status_badge.tooltip_text = "System Integration Review (SIR) Approved: All launch, orbital Delta-V, lunar T/W, and night survival checks nominal (NASA SP-2016-6105 Rev2)."
 
 
 func _on_copy_design_code_pressed() -> void:
@@ -431,6 +517,10 @@ func _on_load_design_code_pressed() -> void:
 		system_status_badge.text = "✖ FAIL • INVALID DESIGN CODE"
 		system_status_badge.add_theme_color_override("font_color", COL_RED)
 	else:
+		_idle_seconds = 0.0
+		_has_evaluated_mission = true
+		if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):
+			phase4_debrief.set_mission_evaluated(true)
 		play_sfx("quindar_beep")
 		_set_next_step_glow(true)
 

@@ -19,9 +19,17 @@ const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED                   # #FF4560
 const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN                 # #2FD3FF
 const COLOR_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW             # #EAFE07
 const COLOR_BRAND_BLUE: Color = BrandStyle.BRAND_BLUE               # #0042A6
+const COLOR_GUIDE_VIOLET: Color = BrandStyle.GUIDE_VIOLET           # #8B6CFF
 const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
 const COLOR_HEADER: Color = BrandStyle.TEXT_HEADER
 const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
+
+const PHASE_TITLES: Array[String] = [
+	"1. Formulation",
+	"2. 3D VAB",
+	"3. Lunar Sim",
+	"4. Pareto Debrief"
+]
 
 @onready var status_badge_label: Label = %StatusBadgeLabel
 @onready var btn_preset_1: Button = %BtnPreset1
@@ -59,9 +67,21 @@ const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 @onready var rad_sub_label: Label = %RadSubLabel
 
 var _active_phase_index: int = 0
+var _completed_phases: Array[bool] = [false, false, false, false]
 var _phase_buttons: Array[Button] = []
 var _preset_buttons: Array[Button] = []
 var power_sparkline: TelemetrySparkline = null
+
+var _chip_holder: Node = null
+var _feedback_chip: PanelContainer = null
+var _feedback_chip_label: Label = null
+var _chip_tween: Tween = null
+var _prev_telemetry: Dictionary = {}
+var _last_chip_text: String = ""
+
+var _preset_pulse_active: bool = false
+var _preset_pulse_sb_1: StyleBoxFlat = null
+var _preset_pulse_sb_2: StyleBoxFlat = null
 
 
 func _ready() -> void:
@@ -72,12 +92,19 @@ func _ready() -> void:
 	_apply_compact_hud_buttons()
 	_bind_tabular_fonts()
 	_setup_power_sparkline()
+	_setup_feedback_chip()
 	_connect_ui_signals()
 	_connect_state_signals()
 
 	set_active_phase(0)
 	_sync_controls_from_state()
 	refresh_telemetry(MissionState.get_telemetry_snapshot())
+
+
+func _exit_tree() -> void:
+	if _chip_tween != null and _chip_tween.is_valid():
+		_chip_tween.kill()
+		_chip_tween = null
 
 
 func _apply_bar_style() -> void:
@@ -116,6 +143,71 @@ func _setup_power_sparkline() -> void:
 	power_sparkline.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header_row.add_child(power_sparkline)
 	header_row.move_child(power_sparkline, 1)
+
+
+func _setup_feedback_chip() -> void:
+	# Plain Node container keeps the floating chip completely outside PanelContainer sizing (0.0px layout shift)
+	_chip_holder = Node.new()
+	_chip_holder.name = "FeedbackChipHolder"
+	add_child(_chip_holder)
+
+	_feedback_chip = PanelContainer.new()
+	_feedback_chip.name = "FeedbackChip"
+	_feedback_chip.top_level = true
+	_feedback_chip.z_index = 60
+	_feedback_chip.visible = false
+	_feedback_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chip_holder.add_child(_feedback_chip)
+
+	_feedback_chip_label = Label.new()
+	_feedback_chip_label.name = "FeedbackChipLabel"
+	_feedback_chip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_feedback_chip_label.add_theme_font_size_override("font_size", 11)
+	BrandStyle.bind_mono_font(_feedback_chip_label)
+	_feedback_chip.add_child(_feedback_chip_label)
+
+
+func show_feedback_chip(chip_text: String, accent_col: Color, target_card: Control = null) -> void:
+	if not is_instance_valid(_feedback_chip) or not is_instance_valid(_feedback_chip_label):
+		return
+	if _chip_tween != null and _chip_tween.is_valid():
+		_chip_tween.kill()
+
+	_last_chip_text = chip_text
+	_feedback_chip_label.text = chip_text
+	_feedback_chip_label.add_theme_color_override("font_color", accent_col)
+
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = Color(0.020, 0.031, 0.059, 0.96)
+	sb.border_color = accent_col
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 7.0
+	sb.content_margin_right = 7.0
+	sb.content_margin_top = 2.0
+	sb.content_margin_bottom = 2.0
+	_feedback_chip.add_theme_stylebox_override("panel", sb)
+
+	var anchor: Control = target_card if is_instance_valid(target_card) else card_mass
+	var start_pos: Vector2 = anchor.global_position + Vector2(6.0, -14.0)
+	start_pos.x = clampf(start_pos.x, 4.0, 1140.0)
+	start_pos.y = maxf(2.0, start_pos.y)
+	_feedback_chip.reset_size()
+	_feedback_chip.global_position = start_pos
+	_feedback_chip.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_feedback_chip.visible = true
+
+	if is_inside_tree():
+		_chip_tween = create_tween()
+		_chip_tween.tween_property(_feedback_chip, "modulate:a", 1.0, 0.12)
+		_chip_tween.tween_interval(1.13)
+		_chip_tween.set_parallel(true)
+		_chip_tween.tween_property(_feedback_chip, "modulate:a", 0.0, 0.25)
+		_chip_tween.tween_property(_feedback_chip, "global_position:y", start_pos.y + 8.0, 0.25)
+		_chip_tween.chain().tween_callback(func() -> void:
+			if is_instance_valid(_feedback_chip):
+				_feedback_chip.visible = false
+		)
 
 
 func _apply_compact_hud_buttons() -> void:
@@ -183,30 +275,82 @@ func _connect_state_signals() -> void:
 		MissionState.simulation_alert.connect(_on_simulation_alert)
 
 
+func mark_phase_completed(phase_index: int) -> void:
+	var idx: int = clampi(phase_index, 0, _completed_phases.size() - 1)
+	_completed_phases[idx] = true
+	set_active_phase(_active_phase_index)
+
+
 func set_active_phase(phase_index: int) -> void:
-	_active_phase_index = clampi(phase_index, 0, _phase_buttons.size() - 1)
+	var next_index: int = clampi(phase_index, 0, _phase_buttons.size() - 1)
+	if next_index > _active_phase_index:
+		for i: int in range(next_index):
+			_completed_phases[i] = true
+	_active_phase_index = next_index
+
 	for idx: int in range(_phase_buttons.size()):
 		var btn: Button = _phase_buttons[idx]
+		var title_str: String = PHASE_TITLES[idx] if idx < PHASE_TITLES.size() else str(idx + 1)
 		var is_active: bool = (idx == _active_phase_index)
+		var is_completed: bool = (not is_active) and (idx < _active_phase_index or _completed_phases[idx])
 		btn.set_pressed_no_signal(is_active)
+
 		if is_active:
+			btn.text = "● %s" % title_str
 			var tab_active: StyleBoxFlat = _make_hud_btn_style(
 				Color(0.043, 0.239, 0.569, 0.94),
 				COLOR_NEON_YELLOW,
 				true
 			)
 			btn.add_theme_stylebox_override("pressed", tab_active)
-			btn.add_theme_color_override("font_color", COLOR_NEON_YELLOW)
-			btn.add_theme_color_override("font_pressed_color", COLOR_NEON_YELLOW)
+			btn.add_theme_stylebox_override("normal", tab_active)
+			btn.add_theme_color_override("font_color", COLOR_ACCENT)
+			btn.add_theme_color_override("font_pressed_color", COLOR_ACCENT)
+		elif is_completed:
+			btn.text = "✔ %s" % title_str
+			var tab_done: StyleBoxFlat = _make_hud_btn_style(
+				Color(0.055, 0.086, 0.141, 0.92),
+				Color(COLOR_OK.r, COLOR_OK.g, COLOR_OK.b, 0.60),
+				false
+			)
+			btn.add_theme_stylebox_override("normal", tab_done)
+			btn.add_theme_color_override("font_color", COLOR_OK)
+			btn.remove_theme_color_override("font_pressed_color")
 		else:
+			btn.text = "○ %s" % title_str
 			var tab_std: StyleBoxFlat = _make_hud_btn_style(
 				Color(0.055, 0.086, 0.141, 0.92),
 				BrandStyle.BTN_BORDER,
 				false
 			)
 			btn.add_theme_stylebox_override("normal", tab_std)
-			btn.remove_theme_color_override("font_color")
+			btn.add_theme_color_override("font_color", COLOR_HEADER)
 			btn.remove_theme_color_override("font_pressed_color")
+
+
+func set_preset_guidance_pulse(pulse_01: float, active: bool) -> void:
+	if active:
+		if not _preset_pulse_active:
+			_preset_pulse_active = true
+			_preset_pulse_sb_1 = _make_hud_btn_style(Color(0.14, 0.10, 0.32, 0.95), COLOR_GUIDE_VIOLET, false)
+			_preset_pulse_sb_1.set_border_width_all(2)
+			_preset_pulse_sb_2 = _preset_pulse_sb_1.duplicate() as StyleBoxFlat
+			btn_preset_1.add_theme_stylebox_override("normal", _preset_pulse_sb_1)
+			btn_preset_2.add_theme_stylebox_override("normal", _preset_pulse_sb_2)
+			btn_preset_1.add_theme_stylebox_override("pressed", _preset_pulse_sb_1)
+			btn_preset_2.add_theme_stylebox_override("pressed", _preset_pulse_sb_2)
+
+		var border_col: Color = Color(COLOR_GUIDE_VIOLET.r, COLOR_GUIDE_VIOLET.g, COLOR_GUIDE_VIOLET.b, 0.48 + 0.52 * pulse_01)
+		var bg_col: Color = Color(0.12 + 0.10 * pulse_01, 0.09 + 0.07 * pulse_01, 0.30 + 0.16 * pulse_01, 0.96)
+		for sb: StyleBoxFlat in [_preset_pulse_sb_1, _preset_pulse_sb_2]:
+			if sb != null:
+				sb.border_color = border_col
+				sb.bg_color = bg_col
+	elif _preset_pulse_active:
+		_preset_pulse_active = false
+		_apply_compact_hud_buttons()
+		set_active_phase(_active_phase_index)
+		_sync_controls_from_state()
 
 
 func _on_phase_button_pressed(phase_index: int) -> void:
@@ -284,6 +428,57 @@ func refresh_telemetry(snap: Dictionary) -> void:
 	_update_budget_card(snap, lv, eng)
 	_update_comms_card(snap, orbit, zone, eng)
 	_update_radiation_card(snap, eng)
+
+	if not _prev_telemetry.is_empty():
+		_emit_telemetry_delta_chip(snap)
+	_prev_telemetry = snap.duplicate()
+
+
+func _emit_telemetry_delta_chip(snap: Dictionary) -> void:
+	var d_dl: float = float(snap.get("downlink_mbps", 0.0)) - float(_prev_telemetry.get("downlink_mbps", 0.0))
+	var d_pwr: float = float(snap.get("net_power_w", 0.0)) - float(_prev_telemetry.get("net_power_w", 0.0))
+	var d_dv: float = float(snap.get("delta_v_ms", 0.0)) - float(_prev_telemetry.get("delta_v_ms", 0.0))
+	var d_mass: float = float(snap.get("m0_wet_kg", 0.0)) - float(_prev_telemetry.get("m0_wet_kg", 0.0))
+	var d_cost: float = float(snap.get("total_cost_musd", 0.0)) - float(_prev_telemetry.get("total_cost_musd", 0.0))
+	var d_rad: float = float(snap.get("total_mission_dose_msv", 0.0)) - float(_prev_telemetry.get("total_mission_dose_msv", 0.0))
+
+	if absf(d_dl) >= 0.5:
+		show_feedback_chip(
+			"%s Link %+.1f Mbps" % ["✔" if d_dl > 0.0 else "⚠", d_dl],
+			COLOR_OK if d_dl > 0.0 else COLOR_WARN,
+			card_comms
+		)
+	elif absf(d_pwr) >= 15.0:
+		show_feedback_chip(
+			"%s Power %+.0f W" % ["✔" if d_pwr > 0.0 else "⚠", d_pwr],
+			COLOR_OK if d_pwr > 0.0 else COLOR_WARN,
+			card_power
+		)
+	elif absf(d_dv) >= 5.0:
+		show_feedback_chip(
+			"%s Δv %+.0f m/s" % ["✔" if d_dv > 0.0 else "⚠", d_dv],
+			COLOR_OK if d_dv > 0.0 else COLOR_WARN,
+			card_propulsion
+		)
+	elif absf(d_mass) >= 0.5:
+		show_feedback_chip(
+			"%s Mass %+.0f kg" % ["⚠" if d_mass > 0.0 else "✔", d_mass],
+			COLOR_WARN if d_mass > 0.0 else COLOR_OK,
+			card_mass
+		)
+	elif absf(d_cost) >= 0.1:
+		var sign_str: String = "+" if d_cost > 0.0 else "-"
+		show_feedback_chip(
+			"%s Cost %s$%.0fM" % ["⚠" if d_cost > 0.0 else "✔", sign_str, absf(d_cost)],
+			COLOR_WARN if d_cost > 0.0 else COLOR_OK,
+			card_budget
+		)
+	elif absf(d_rad) >= 0.1:
+		show_feedback_chip(
+			"%s Rad %+.1f mSv" % ["⚠" if d_rad > 0.0 else "✔", d_rad],
+			COLOR_WARN if d_rad > 0.0 else COLOR_OK,
+			card_radiation
+		)
 
 
 func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> void:

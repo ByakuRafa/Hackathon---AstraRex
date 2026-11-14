@@ -113,6 +113,7 @@ func _ready() -> void:
 	_style_cta_button()
 	BrandStyle.bind_mono_font(hover_delta_label)
 	BrandStyle.bind_mono_font(trade_summary_label)
+	BrandStyle.bind_mono_font(design_code_edit)
 	btn_reset_cam.focus_mode = Control.FOCUS_NONE
 	btn_turntable.focus_mode = Control.FOCUS_NONE
 	_build_category_tabs()
@@ -482,6 +483,32 @@ func _on_part_hovered(part_id: String) -> void:
 	hover_delta_label.add_theme_color_override("font_color", col)
 
 
+func _is_category_equipped(cat_id: String) -> bool:
+	if cat_id == "all":
+		return true
+	for pid: String in MissionState.selected_subsystem_ids:
+		var pdata: Dictionary = NasaDataLoader.get_subsystem(pid)
+		if str(pdata.get("subsystem", "")) == cat_id:
+			return true
+	return false
+
+
+func _on_diegetic_pin_draw(btn: Button) -> void:
+	if not is_instance_valid(btn) or not bool(btn.get_meta("is_empty_slot", false)):
+		return
+	var is_sel: bool = bool(btn.get_meta("is_selected_slot", false))
+	var border_col: Color = COLOR_NEON_YELLOW if is_sel else Color(BrandStyle.BTN_BORDER.r, BrandStyle.BTN_BORDER.g, BrandStyle.BTN_BORDER.b, 0.85)
+	var r: Rect2 = Rect2(Vector2(1.0, 1.0), btn.size - Vector2(2.0, 2.0))
+	var tl: Vector2 = r.position
+	var tr: Vector2 = Vector2(r.end.x, r.position.y)
+	var br: Vector2 = r.end
+	var bl: Vector2 = Vector2(r.position.x, r.end.y)
+	btn.draw_dashed_line(tl, tr, border_col, 1.2, 4.0, true)
+	btn.draw_dashed_line(tr, br, border_col, 1.2, 4.0, true)
+	btn.draw_dashed_line(br, bl, border_col, 1.2, 4.0, true)
+	btn.draw_dashed_line(bl, tl, border_col, 1.2, 4.0, true)
+
+
 func _build_diegetic_pins() -> void:
 	if not is_instance_valid(diegetic_pin_overlay) or not is_instance_valid(lander_chassis):
 		return
@@ -498,8 +525,8 @@ func _build_diegetic_pins() -> void:
 		var pin_btn: Button = Button.new()
 		pin_btn.focus_mode = Control.FOCUS_NONE
 		pin_btn.text = pin_label
-		pin_btn.custom_minimum_size = Vector2(54, 22)
-		pin_btn.size = Vector2(54, 22)
+		pin_btn.custom_minimum_size = Vector2(64, 22)
+		pin_btn.size = Vector2(64, 22)
 		pin_btn.add_theme_font_size_override("font_size", 11)
 		BrandStyle.bind_mono_font(pin_btn)
 		pin_btn.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -509,10 +536,12 @@ func _build_diegetic_pins() -> void:
 		]
 		pin_btn.pressed.connect(_on_category_selected.bind(cat_id))
 		pin_btn.mouse_entered.connect(func() -> void: _play_vab_sfx("ui_hover_tick"))
+		pin_btn.draw.connect(_on_diegetic_pin_draw.bind(pin_btn))
 		diegetic_pin_overlay.add_child(pin_btn)
 		_diegetic_pins.append({
 			"button": pin_btn,
 			"cat": cat_id,
+			"label": pin_label,
 			"marker_name": marker_name,
 			"marker_node": marker_node,
 		})
@@ -525,21 +554,34 @@ func _sync_diegetic_pin_styles() -> void:
 	for pin_rec: Dictionary in _diegetic_pins:
 		var btn: Button = pin_rec["button"] as Button
 		var cat_id: String = str(pin_rec["cat"])
+		var base_label: String = str(pin_rec.get("label", cat_id.to_upper()))
 		var is_selected: bool = (_active_category == cat_id)
+		var is_equipped: bool = _is_category_equipped(cat_id)
+		btn.set_meta("is_empty_slot", not is_equipped)
+		btn.set_meta("is_selected_slot", is_selected)
+		btn.text = ("● %s" if is_equipped else "◌ %s") % base_label
+
 		var sb: StyleBoxFlat = StyleBoxFlat.new()
-		sb.bg_color = Color(0.043, 0.239, 0.569, 0.92) if is_selected else BrandStyle.PANEL_900
-		sb.border_color = COLOR_NEON_YELLOW if is_selected else BrandStyle.BTN_BORDER
-		sb.set_border_width_all(2 if is_selected else 1)
+		if is_equipped:
+			sb.bg_color = Color(0.043, 0.239, 0.569, 0.92) if is_selected else BrandStyle.PANEL_900
+			sb.border_color = COLOR_NEON_YELLOW if is_selected else COLOR_OK
+			sb.set_border_width_all(2 if is_selected else 1)
+		else:
+			sb.bg_color = Color(0.055, 0.086, 0.141, 0.42)
+			sb.set_border_width_all(0)
 		sb.set_corner_radius_all(10)
 		sb.content_margin_left = 6
 		sb.content_margin_right = 6
 		sb.content_margin_top = 2
 		sb.content_margin_bottom = 2
+
 		var sb_hover: StyleBoxFlat = sb.duplicate() as StyleBoxFlat
 		sb_hover.border_color = COLOR_NEON_YELLOW
+		sb_hover.set_border_width_all(1)
 		btn.add_theme_stylebox_override("normal", sb)
 		btn.add_theme_stylebox_override("hover", sb_hover)
-		btn.add_theme_color_override("font_color", COLOR_NEON_YELLOW if is_selected else COLOR_ACCENT)
+		btn.add_theme_color_override("font_color", COLOR_NEON_YELLOW if is_selected else (COLOR_ACCENT if is_equipped else COLOR_MUTED))
+		btn.queue_redraw()
 
 
 func _update_diegetic_pins() -> void:

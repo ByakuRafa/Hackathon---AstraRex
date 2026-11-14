@@ -49,6 +49,7 @@ var _is_debrief_active: bool = false
 var _refresh_queued: bool = false
 var _latest_report: Dictionary = {}
 var _debrief_sparkline: TelemetrySparkline = null
+var _mission_evaluated: bool = false
 
 
 func _ready() -> void:
@@ -101,6 +102,12 @@ func set_debrief_active(active: bool) -> void:
 		_refresh_debrief_async()
 
 
+func set_mission_evaluated(evaluated: bool) -> void:
+	_mission_evaluated = evaluated
+	if _is_debrief_active and not _latest_report.is_empty():
+		_apply_empty_or_evaluated_status(ParetoSolver.cached_pareto_frontier)
+
+
 func _connect_signals() -> void:
 	btn_axis_cost.pressed.connect(_on_axis_mode_pressed.bind(ParetoChartControl.XAxisMode.COST_MUSD))
 	btn_axis_mass.pressed.connect(_on_axis_mode_pressed.bind(ParetoChartControl.XAxisMode.WET_MASS_KG))
@@ -137,7 +144,13 @@ func _refresh_debrief_async() -> void:
 		_refresh_queued = true
 		return
 
-	solver_status_label.text = "Solving Pareto Frontier (cooperative frame-slicing)..."
+	var is_unconfigured: bool = (not _mission_evaluated) or (MissionState.selected_subsystem_ids.size() <= 1)
+	if is_unconfigured:
+		solver_status_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier (solving...)"
+		solver_status_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
+	else:
+		solver_status_label.text = "Solving Pareto Frontier (cooperative frame-slicing)..."
+		solver_status_label.add_theme_color_override("font_color", COLOR_MUTED)
 	var frontier: Array[Dictionary] = await ParetoSolver.solve_pareto_frontier_async(64)
 
 	if _refresh_queued:
@@ -157,15 +170,31 @@ func _refresh_debrief_async() -> void:
 	var player_pt: Dictionary = report.get("player_design", {}) as Dictionary
 
 	pareto_chart.set_chart_data(ParetoSolver.cached_candidates, frontier, player_pt, nasa_ref)
-	solver_status_label.text = "%d Evaluated • %d Pareto-Optimal (%s)" % [
-		ParetoSolver.cached_candidates.size(),
-		frontier.size(),
-		MissionState.selected_landing_zone_id
-	]
+	_apply_empty_or_evaluated_status(frontier)
 
 	_render_primary_status_card(report)
 	_render_bottlenecks_card(report)
 	_render_benchmark_grid(report)
+
+
+func _apply_empty_or_evaluated_status(frontier: Array[Dictionary]) -> void:
+	var is_unconfigured: bool = (not _mission_evaluated) or (MissionState.selected_subsystem_ids.size() <= 1)
+	if is_unconfigured:
+		solver_status_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier  •  %d Optimal (%s)" % [
+			frontier.size(),
+			MissionState.selected_landing_zone_id
+		]
+		solver_status_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
+		hover_readout_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier or hover any point for SI specs."
+		hover_readout_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
+	else:
+		solver_status_label.text = "%d Evaluated • %d Pareto-Optimal (%s)" % [
+			ParetoSolver.cached_candidates.size(),
+			frontier.size(),
+			MissionState.selected_landing_zone_id
+		]
+		solver_status_label.add_theme_color_override("font_color", COLOR_MUTED)
+		hover_readout_label.add_theme_color_override("font_color", BrandStyle.TEXT_HEADER)
 
 
 func _render_primary_status_card(report: Dictionary) -> void:
