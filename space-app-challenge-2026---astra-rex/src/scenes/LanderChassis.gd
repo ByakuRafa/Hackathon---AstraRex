@@ -2,7 +2,7 @@ class_name LanderChassis
 extends Node3D
 
 ## Modular 3D CLPS Lunar Lander Chassis.
-## Instances lander_bus.glb at the core and dynamically attaches/toggles .glb subsystem
+## Instances lander_bus.glb upright at the core and dynamically attaches/toggles .glb subsystem
 ## models onto designated Marker3D mount points synchronized with MissionState.
 
 signal meshes_updated(active_slots: Array[Dictionary])
@@ -15,28 +15,57 @@ const PART_MOUNT_OVERRIDES: Dictionary = {
 
 const PART_LOCAL_OFFSETS: Dictionary = {
 	"prop_chem_biprop": Vector3(0.0, 0.0, 0.0),
-	"prop_ion_sep": Vector3(0.0, -0.05, 0.0),
-	"pwr_solar_lro": Vector3(-0.1, 0.15, 0.0),
-	"pwr_rtg_mmrtg": Vector3(-0.25, -0.15, 0.0),
-	"pwr_batt_liion": Vector3(0.0, -0.15, 0.0),
-	"comm_hga_ka": Vector3(0.0, 0.0, 0.0),
+	"prop_ion_sep": Vector3(0.0, 0.0, 0.0),
+	"pwr_solar_lro": Vector3(-0.04, 0.12, 0.0),
+	"pwr_rtg_mmrtg": Vector3(-0.24, -0.12, 0.0),
+	"pwr_batt_liion": Vector3(0.22, -0.08, 0.0),
+	"comm_hga_ka": Vector3(0.0, 0.02, 0.0),
 	"comm_uga_s": Vector3(0.0, 0.0, 0.0),
-	"obc_adcs_radhard": Vector3(-0.35, 0.15, 0.0),
-	"obc_adcs_cots": Vector3(-0.35, 0.15, 0.0),
-	"avionics_lidar_trn": Vector3(0.35, -0.15, 0.10),
-	"pay_drill_trident": Vector3(0.0, -0.35, 0.0),
-	"pay_spec_msolo": Vector3(0.0, -0.10, 0.0),
-	"pay_sar_lband": Vector3(-0.25, 0.20, -0.25),
-	"shield_heavy": Vector3(0.0, 0.0, -0.10)
+	"obc_adcs_radhard": Vector3(-0.34, 0.0, 0.05),
+	"obc_adcs_cots": Vector3(-0.34, 0.0, 0.05),
+	"avionics_lidar_trn": Vector3(0.34, -0.18, 0.42),
+	"pay_drill_trident": Vector3(0.22, -0.06, 0.16),
+	"pay_spec_msolo": Vector3(-0.16, -0.04, 0.16),
+	"pay_sar_lband": Vector3(0.08, 0.0, 0.0),
+	"shield_heavy": Vector3(0.0, 0.0, -0.06)
 }
 
 const PART_LOCAL_ROTATIONS_DEG: Dictionary = {
-	"pwr_rtg_mmrtg": Vector3(0.0, 0.0, 35.0),
-	"shield_heavy": Vector3(0.0, 90.0, 0.0),
-	"pay_sar_lband": Vector3(0.0, -35.0, 0.0)
+	"prop_chem_biprop": Vector3(0.0, 0.0, 0.0),
+	"prop_ion_sep": Vector3(0.0, 0.0, 0.0),
+	"pwr_solar_lro": Vector3(28.0, 0.0, -12.0),
+	"pwr_rtg_mmrtg": Vector3(0.0, 0.0, 38.0),
+	"pwr_batt_liion": Vector3(0.0, 0.0, 0.0),
+	"comm_hga_ka": Vector3(-18.0, 0.0, 0.0),
+	"comm_uga_s": Vector3(0.0, 0.0, 0.0),
+	"obc_adcs_radhard": Vector3(0.0, 160.0, 0.0),
+	"obc_adcs_cots": Vector3(0.0, 160.0, 0.0),
+	"avionics_lidar_trn": Vector3(-32.0, 180.0, 0.0),
+	"pay_drill_trident": Vector3(0.0, -35.0, 0.0),
+	"pay_spec_msolo": Vector3(0.0, 140.0, 0.0),
+	"pay_sar_lband": Vector3(0.0, -25.0, 0.0),
+	"shield_heavy": Vector3(90.0, 0.0, 0.0)
+}
+
+const PART_LOCAL_SCALES: Dictionary = {
+	"prop_chem_biprop": Vector3(0.44, 0.44, 0.44),
+	"prop_ion_sep": Vector3(0.80, 0.80, 0.80),
+	"pwr_solar_lro": Vector3(0.52, 0.52, 0.52),
+	"pwr_rtg_mmrtg": Vector3(0.44, 0.44, 0.44),
+	"pwr_batt_liion": Vector3(0.46, 0.46, 0.46),
+	"comm_hga_ka": Vector3(0.58, 0.58, 0.58),
+	"comm_uga_s": Vector3(0.85, 0.85, 0.85),
+	"obc_adcs_radhard": Vector3(0.52, 0.52, 0.52),
+	"obc_adcs_cots": Vector3(0.52, 0.52, 0.52),
+	"avionics_lidar_trn": Vector3(0.52, 0.52, 0.52),
+	"pay_drill_trident": Vector3(0.55, 0.55, 0.55),
+	"pay_spec_msolo": Vector3(0.58, 0.58, 0.58),
+	"pay_sar_lband": Vector3(0.45, 0.45, 0.45),
+	"shield_heavy": Vector3(0.52, 0.26, 0.52)
 }
 
 @onready var bus_model: Node3D = $BusModel
+@onready var mount_chassis: Marker3D = get_node_or_null("Mount_Chassis") as Marker3D
 @onready var mount_propulsion: Marker3D = $Mount_Propulsion
 @onready var mount_power_port: Marker3D = $Mount_Power_Port
 @onready var mount_power_starboard: Marker3D = $Mount_Power_Starboard
@@ -77,6 +106,18 @@ func _register_mounts() -> void:
 		"Mount_Avionics": mount_avionics,
 		"Mount_Shielding": mount_shielding
 	}
+	if is_instance_valid(mount_chassis):
+		_mounts_by_name["Mount_Chassis"] = mount_chassis
+
+	# Adopt pre-instanced Mesh_<part_id> children placed in LanderChassis.tscn
+	for mount_name_var: Variant in _mounts_by_name.keys():
+		var mount_node: Marker3D = _mounts_by_name[mount_name_var] as Marker3D
+		if not is_instance_valid(mount_node):
+			continue
+		for child: Node in mount_node.get_children():
+			if child is Node3D and child.name.begins_with("Mesh_"):
+				var part_id: String = child.name.trim_prefix("Mesh_")
+				_instanced_parts[part_id] = child as Node3D
 
 
 func _on_state_updated(telemetry: Dictionary) -> void:
@@ -130,6 +171,7 @@ func sync_with_subsystem_ids(equipped_ids: Array[String]) -> void:
 			mesh_node.visible = true
 			mesh_node.position = PART_LOCAL_OFFSETS.get(part_id, Vector3.ZERO) as Vector3
 			mesh_node.rotation_degrees = PART_LOCAL_ROTATIONS_DEG.get(part_id, Vector3.ZERO) as Vector3
+			mesh_node.scale = PART_LOCAL_SCALES.get(part_id, Vector3.ONE) as Vector3
 
 		_active_slot_records.append({
 			"part_id": part_id,

@@ -262,7 +262,7 @@
       "data_rate_gb_day": 2.5,
       "science_points": 45.0,
       "cost_m_usd": 14.0,
-      "mount_point": "Mount_Payload_Top",
+      "mount_point": "Mount_Payload_1",
       "model_path": "res://assets/models/payload_drill.glb",
       "nasa_citation": "NASA CLPS VIPER/PRIME-1 Payload Heritage: Subsurface volatile extraction in Shackleton Crater"
     },
@@ -276,7 +276,7 @@
       "data_rate_gb_day": 8.0,
       "science_points": 35.0,
       "cost_m_usd": 7.5,
-      "mount_point": "Mount_Payload_Side",
+      "mount_point": "Mount_Payload_2",
       "model_path": "res://assets/models/payload_msolo.glb",
       "nasa_citation": "NASA PRIME-1 / MSolo Heritage: Mass spectrometry of lunar polar water-ice volatiles"
     },

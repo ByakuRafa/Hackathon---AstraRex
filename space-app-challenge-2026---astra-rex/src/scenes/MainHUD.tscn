@@ -1,13 +1,15 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/scenes/MainHUD.gd" id="1_mainhud"]
+[ext_resource type="Theme" path="res://src/ui/MissionControlTheme.tres" id="2_theme"]
 
 [node name="MainHUD" type="PanelContainer"]
-custom_minimum_size = Vector2(0, 108)
+custom_minimum_size = Vector2(0, 84)
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 108.0
+offset_bottom = 84.0
 grow_horizontal = 2
+theme = ExtResource("2_theme")
 script = ExtResource("1_mainhud")
 
 [node name="RootVBox" type="VBoxContainer" parent="."]
@@ -16,46 +18,47 @@ theme_override_constants/separation = 5
 
 [node name="TopControlRow" type="HBoxContainer" parent="RootVBox"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="BrandLabel" type="Label" parent="RootVBox/TopControlRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "ASTRA-REX // CLPS"
+theme_override_colors/font_color = Color(0.902, 0.945, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "ASTRA-REX"
 
 [node name="StatusBadgeLabel" type="Label" parent="RootVBox/TopControlRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 0)
+custom_minimum_size = Vector2(138, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "STATUS: NOMINAL"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+text = "NOMINAL"
 
 [node name="Sep1" type="VSeparator" parent="RootVBox/TopControlRow"]
 layout_mode = 2
 
-[node name="PresetsLabel" type="Label" parent="RootVBox/TopControlRow"]
+[node name="PresetsGroup" type="HBoxContainer" parent="RootVBox/TopControlRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "JUDGES:"
+theme_override_constants/separation = 6
 
-[node name="BtnPreset1" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPreset1" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "P1: Artemis"
+text = "P1: Optimal"
 
-[node name="BtnPreset2" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPreset2" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
 text = "P2: Failure"
 
-[node name="BtnPreset3" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPreset3" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
 text = "P3: Sandbox"
 
@@ -65,46 +68,50 @@ layout_mode = 2
 [node name="BtnModeToggle" type="Button" parent="RootVBox/TopControlRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "STUDENT MODE"
+text = "STUDENT"
 
 [node name="Spacer" type="Control" parent="RootVBox/TopControlRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BtnPhase1" type="Button" parent="RootVBox/TopControlRow"]
-unique_name_in_owner = true
+[node name="PhaseTabsGroup" type="HBoxContainer" parent="RootVBox/TopControlRow"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-toggle_mode = true
-text = "1. Formulation"
+theme_override_constants/separation = 6
 
-[node name="BtnPhase2" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPhase1" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "2. 3D VAB"
+text = "1. Plan"
 
-[node name="BtnPhase3" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPhase2" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "3. Descent Sim"
+text = "2. VAB"
 
-[node name="BtnPhase4" type="Button" parent="RootVBox/TopControlRow"]
+[node name="BtnPhase3" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "4. Pareto Debrief"
+text = "3. Descent"
+
+[node name="BtnPhase4" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+toggle_mode = true
+text = "4. Debrief"
 
 [node name="TelemetryRow" type="HBoxContainer" parent="RootVBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="CardMass" type="PanelContainer" parent="RootVBox/TelemetryRow"]
 unique_name_in_owner = true
@@ -113,23 +120,31 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardMass"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardMass/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "MASS (m0 / TLI & MGA)"
+theme_override_constants/separation = 6
 
-[node name="MassValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "MASS"
+
+[node name="MassValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
 text = "0 / 0 kg"
 
 [node name="MassSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
 text = "Dry 0 kg"
 
 [node name="CardPropulsion" type="PanelContainer" parent="RootVBox/TelemetryRow"]
@@ -139,24 +154,32 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPropulsion"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "PROPULSION (Δv & T/W)"
+theme_override_constants/separation = 6
 
-[node name="PropValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "PROP"
+
+[node name="PropValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "0 m/s | T/W 0.00"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
+text = "0 m/s"
 
 [node name="PropSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "F 0 N | Isp 0 s"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "T/W 0.00"
 
 [node name="CardPower" type="PanelContainer" parent="RootVBox/TelemetryRow"]
 unique_name_in_owner = true
@@ -165,24 +188,32 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPower"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardPower/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "NET POWER & BATTERY"
+theme_override_constants/separation = 6
 
-[node name="PowerValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "POWER"
+
+[node name="PowerValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
 text = "+0 W"
 
 [node name="PowerSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "Batt 0 Wh"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 kWh"
 
 [node name="CardBudget" type="PanelContainer" parent="RootVBox/TelemetryRow"]
 unique_name_in_owner = true
@@ -191,24 +222,32 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardBudget"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "MISSION BUDGET (M$)"
+theme_override_constants/separation = 6
 
-[node name="BudgetValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "COST"
+
+[node name="BudgetValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
 text = "$0M / $350M"
 
 [node name="BudgetSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "LV $0M | Sub $0M"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "LV $0M"
 
 [node name="CardComms" type="PanelContainer" parent="RootVBox/TelemetryRow"]
 unique_name_in_owner = true
@@ -217,24 +256,32 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardComms"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardComms/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "DATA & DSN COMMS"
+theme_override_constants/separation = 6
 
-[node name="CommsValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "COMMS"
+
+[node name="CommsValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "0 / 0 GB/d"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
+text = "0 GB/d"
 
 [node name="CommsSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "0 Mbps | DTE 0%"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 Mbps"
 
 [node name="CardRadiation" type="PanelContainer" parent="RootVBox/TelemetryRow"]
 unique_name_in_owner = true
@@ -243,21 +290,29 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardRadiation"]
 layout_mode = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "LIFETIME & RAD DOSE"
+theme_override_constants/separation = 6
 
-[node name="RadValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "LIFE"
+
+[node name="RadValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox/HeaderRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "0 d | 0 mSv"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 2
+text = "0 d"
 
 [node name="RadSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "Shield 2.0 g/cm²"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 mSv"

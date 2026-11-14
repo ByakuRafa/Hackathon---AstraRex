@@ -1,22 +1,24 @@
 class_name MainHUD
 extends PanelContainer
 
-## Persistent NASA Mission Control Top HUD Bar.
-## Hosts 1-Click Judge Presets, Student/Engineer Dual-Scale Toggle,
-## 4-Phase Navigation, and 6 Mandatory SI Resource Telemetry Cards with NASA citations.
+## Persistent NASA Mission Control Top HUD Bar (<= 88px height).
+## Hosts 1-Click Judge Presets, Student/Engineer Toggle, 4 Phase Tabs,
+## and 6 Compact SI Resource Gauges with progressive-disclosure NASA citations in tooltips.
 
 signal phase_requested(phase_index: int)
 
-const COLOR_BG_BAR: Color = Color(0.055, 0.075, 0.115, 0.96)
-const COLOR_CARD_BG: Color = Color(0.085, 0.115, 0.175, 0.95)
-const COLOR_CARD_ERR_BG: Color = Color(0.22, 0.06, 0.075, 0.96)
-const COLOR_CARD_WARN_BG: Color = Color(0.20, 0.145, 0.055, 0.96)
+const COLOR_BG_BAR: Color = Color(0.043, 0.067, 0.125, 0.98)
+const COLOR_CARD_BG: Color = Color(0.075, 0.110, 0.184, 0.96)
+const COLOR_CARD_WARN_BG: Color = Color(0.180, 0.129, 0.043, 0.96)
+const COLOR_CARD_ERR_BG: Color = Color(0.200, 0.055, 0.071, 0.96)
 
-const COLOR_OK: Color = Color(0.24, 0.88, 0.56, 1.0)
-const COLOR_WARN: Color = Color(0.98, 0.74, 0.22, 1.0)
-const COLOR_CRIT: Color = Color(1.0, 0.30, 0.34, 1.0)
-const COLOR_ACCENT: Color = Color(0.32, 0.72, 1.0, 1.0)
-const COLOR_MUTED: Color = Color(0.68, 0.76, 0.86, 1.0)
+const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)       # #10B981
+const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)     # #F59E0B
+const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)     # #EF4444
+const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)   # #38BDF8
+const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)          # #FFFFFF
+const COLOR_HEADER: Color = Color(0.902, 0.945, 1.0, 1.0)     # #E6F1FF
+const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
 
 @onready var status_badge_label: Label = %StatusBadgeLabel
 @onready var btn_preset_1: Button = %BtnPreset1
@@ -63,6 +65,7 @@ func _ready() -> void:
 	_preset_buttons = [btn_preset_1, btn_preset_2, btn_preset_3]
 
 	_apply_bar_style()
+	_apply_compact_hud_buttons()
 	_connect_ui_signals()
 	_connect_state_signals()
 
@@ -74,13 +77,56 @@ func _ready() -> void:
 func _apply_bar_style() -> void:
 	var bar_style: StyleBoxFlat = StyleBoxFlat.new()
 	bar_style.bg_color = COLOR_BG_BAR
-	bar_style.border_color = Color(0.20, 0.34, 0.54, 0.9)
+	bar_style.border_color = Color(0.18, 0.29, 0.45, 0.90)
 	bar_style.border_width_bottom = 2
-	bar_style.content_margin_left = 10
-	bar_style.content_margin_right = 10
+	bar_style.content_margin_left = 12
+	bar_style.content_margin_right = 12
 	bar_style.content_margin_top = 6
 	bar_style.content_margin_bottom = 6
 	add_theme_stylebox_override("panel", bar_style)
+
+
+func _apply_compact_hud_buttons() -> void:
+	var all_hud_btns: Array[Button] = []
+	all_hud_btns.append_array(_preset_buttons)
+	all_hud_btns.append(btn_mode_toggle)
+	all_hud_btns.append_array(_phase_buttons)
+
+	for btn: Button in all_hud_btns:
+		var normal_sb: StyleBoxFlat = _make_hud_btn_style(
+			Color(0.086, 0.125, 0.204, 0.96),
+			Color(0.20, 0.31, 0.48, 0.85),
+			false
+		)
+		var hover_sb: StyleBoxFlat = _make_hud_btn_style(
+			Color(0.122, 0.180, 0.294, 0.98),
+			COLOR_ACCENT,
+			false
+		)
+		var pressed_sb: StyleBoxFlat = _make_hud_btn_style(
+			Color(0.094, 0.212, 0.341, 0.98),
+			COLOR_ACCENT,
+			true
+		)
+		btn.add_theme_stylebox_override("normal", normal_sb)
+		btn.add_theme_stylebox_override("hover", hover_sb)
+		btn.add_theme_stylebox_override("pressed", pressed_sb)
+		btn.add_theme_stylebox_override("focus", hover_sb)
+
+
+func _make_hud_btn_style(bg: Color, border: Color, active: bool) -> StyleBoxFlat:
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(1)
+	if active:
+		sb.border_width_bottom = 2
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	return sb
 
 
 func _connect_ui_signals() -> void:
@@ -108,9 +154,9 @@ func set_active_phase(phase_index: int) -> void:
 	for idx: int in range(_phase_buttons.size()):
 		var btn: Button = _phase_buttons[idx]
 		var is_active: bool = (idx == _active_phase_index)
-		btn.button_pressed = is_active
+		btn.set_pressed_no_signal(is_active)
 		if is_active:
-			btn.add_theme_color_override("font_color", COLOR_ACCENT)
+			btn.add_theme_color_override("font_color", COLOR_HEADER)
 		else:
 			btn.remove_theme_color_override("font_color")
 
@@ -139,27 +185,31 @@ func _on_state_updated(snap: Dictionary) -> void:
 
 
 func _on_simulation_alert(alert_code: String, message: String, citation: String) -> void:
-	status_badge_label.text = alert_code
-	status_badge_label.add_theme_color_override("font_color", COLOR_CRIT)
-	status_badge_label.tooltip_text = "%s\n\n[Reference]: %s" % [message, citation]
+	var pill_color: Color = COLOR_WARN if alert_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT
+	_apply_status_pill(alert_code, pill_color)
+	status_badge_label.tooltip_text = "%s\n\n[NASA Reference]\n%s" % [message, citation]
 
 
 func _sync_controls_from_state() -> void:
 	var eng: bool = MissionState.engineer_mode
 	if btn_mode_toggle.button_pressed != eng:
 		btn_mode_toggle.set_pressed_no_signal(eng)
-	btn_mode_toggle.text = "ENGINEER MODE (SI)" if eng else "STUDENT MODE"
+	btn_mode_toggle.text = "ENGINEER (SI)" if eng else "STUDENT"
 	btn_mode_toggle.tooltip_text = (
-		"Dual-Scale Interface Mode.\n"
-		+ "Student Mode: Guided engineering status badges and plain-language checks.\n"
-		+ "Engineer Mode: Full SI numerical precision, MGA margins, and NASA citations.\n\n"
-		+ "[Reference]: %s" % NasaDataLoader.get_catalog_citation()
+		"Dual-Scale Interface Mode\n"
+		+ "Student: Guided PASS/FAIL indicators.\n"
+		+ "Engineer: Full SI precision, MGA margins, and NASA citations.\n\n"
+		+ "[NASA Reference]\n%s" % NasaDataLoader.get_catalog_citation()
 	)
+
+	btn_preset_1.tooltip_text = "Load Preset 1: Optimal Artemis CLPS (all constraints nominal)."
+	btn_preset_2.tooltip_text = "Load Preset 2: Critical Thrust & PSR Power Failure demonstration."
+	btn_preset_3.tooltip_text = "Load Preset 3: Free Sandbox on SLS Block 1 ($5,000M cap)."
 
 	for idx: int in range(_preset_buttons.size()):
 		var p_btn: Button = _preset_buttons[idx]
 		var is_selected: bool = (idx + 1 == MissionState.current_preset_index)
-		p_btn.button_pressed = is_selected
+		p_btn.set_pressed_no_signal(is_selected)
 
 
 func refresh_telemetry(snap: Dictionary) -> void:
@@ -186,16 +236,53 @@ func refresh_telemetry(snap: Dictionary) -> void:
 
 func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> void:
 	if failure_code == "NOMINAL":
-		status_badge_label.text = "STATUS: NOMINAL" if eng else "MISSION READY"
-		status_badge_label.add_theme_color_override("font_color", COLOR_OK)
+		var label_str: String = "NOMINAL" if eng else "PASS  •  READY"
+		_apply_status_pill(label_str, COLOR_OK)
 		status_badge_label.tooltip_text = (
-			"All primary NASA SP-2016-6105 physical trade constraints satisfied.\n"
-			+ "Wet Mass m0: %.1f kg | Lunar T/W: %.2f | Net Power: %+.1f W"
+			"Mission Status: NOMINAL (PASS)\n"
+			+ "Wet Mass m0: %.1f kg | Lunar T/W: %.2f | Net Power: %+.1f W\n\n"
 			% [float(snap.get("m0_wet_kg", 0.0)), float(snap.get("lunar_tw_ratio", 0.0)), float(snap.get("net_power_w", 0.0))]
+			+ "[NASA Reference]\nNASA SP-2016-6105 Rev2 Systems Engineering Constraints"
 		)
+	elif failure_code == "DSN_DOWNLINK_BOTTLENECK":
+		_apply_status_pill("WARN  •  COMMS", COLOR_WARN)
 	else:
-		status_badge_label.text = failure_code
-		status_badge_label.add_theme_color_override("font_color", COLOR_CRIT)
+		var short_code: String = _abbreviate_failure(failure_code)
+		_apply_status_pill("FAIL  •  %s" % short_code, COLOR_CRIT)
+
+
+func _abbreviate_failure(code: String) -> String:
+	match code:
+		"CRITICAL_THRUST_DEFICIT":
+			return "T/W < 1"
+		"PROPELLANT_DV_SHORTFALL":
+			return "LOW Δv"
+		"LAUNCH_VEHICLE_OVERWEIGHT":
+			return "OVERMASS"
+		"PSR_POWER_BLACKOUT":
+			return "NO PWR"
+		"SLOPE_TIPOVER_HAZARD":
+			return "SLOPE"
+		"RADIATION_SEU_RISK":
+			return "RAD SEU"
+		"NO_PROPULSION_MODULE":
+			return "NO ENGINE"
+	return code
+
+
+func _apply_status_pill(text_val: String, pill_color: Color) -> void:
+	status_badge_label.text = text_val
+	status_badge_label.add_theme_color_override("font_color", COLOR_WHITE)
+	var pill: StyleBoxFlat = StyleBoxFlat.new()
+	pill.bg_color = Color(pill_color.r * 0.35, pill_color.g * 0.35, pill_color.b * 0.35, 0.95)
+	pill.border_color = pill_color
+	pill.set_border_width_all(1)
+	pill.set_corner_radius_all(10)
+	pill.content_margin_left = 10
+	pill.content_margin_right = 10
+	pill.content_margin_top = 2
+	pill.content_margin_bottom = 2
+	status_badge_label.add_theme_stylebox_override("normal", pill)
 
 
 func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
@@ -212,14 +299,13 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 	var bg_col: Color = COLOR_CARD_BG if mass_ok else COLOR_CARD_ERR_BG
 
 	if eng:
-		mass_value_label.text = "%.1f / %.0f kg" % [m0_wet, max_tli]
-		mass_sub_label.text = "Dry %.1f (+%.1f%% MGA) | Prop %.0f kg" % [mf_dry, mga_pct, prop_kg]
+		mass_value_label.text = "%.0f / %.0f kg" % [m0_wet, max_tli]
+		mass_sub_label.text = "Dry %.0f kg  •  +%.0f%% MGA" % [mf_dry, mga_pct]
 	else:
-		var badge: String = "FITS LV" if mass_ok else "OVERWEIGHT"
-		mass_value_label.text = "%.0f kg [%s]" % [m0_wet, badge]
-		mass_sub_label.text = "Cap: %.0f kg | +%.0f%% MGA" % [max_tli, mga_pct]
+		mass_value_label.text = "%.0f kg" % m0_wet
+		mass_sub_label.text = "%s  •  Cap %.0f kg" % ["PASS" if mass_ok else "OVER", max_tli]
 
-	mass_value_label.add_theme_color_override("font_color", COLOR_OK if mass_ok else COLOR_CRIT)
+	mass_value_label.add_theme_color_override("font_color", COLOR_WHITE if mass_ok else COLOR_CRIT)
 	_apply_card_style(card_mass, border_col, bg_col)
 
 	var citation: String = str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
@@ -230,7 +316,7 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		+ "Effective Dry Mass (mf): %.2f kg\n" % mf_dry
 		+ "Propellant Load: %.1f kg\n" % prop_kg
 		+ "Total Wet Mass (m0): %.2f kg / %.1f kg TLI Cap\n\n" % [m0_wet, max_tli]
-		+ "[NASA Citation]:\n%s\n%s" % [citation, "NASA SP-2016-6105 Rev2 Sec 4.3 & Appendix G (MGA)"]
+		+ "[NASA Citation]\n%s\nNASA SP-2016-6105 Rev2 Sec 4.3 & Appendix G (MGA)" % citation
 	)
 
 
@@ -249,21 +335,21 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 	var bg_col: Color = COLOR_CARD_BG if all_ok else (COLOR_CARD_ERR_BG if not tw_ok else COLOR_CARD_WARN_BG)
 
 	if not tw_ok:
-		prop_value_label.text = "T/W %.3f (<1.0!) | %.0f m/s" % [tw, dv]
-		prop_sub_label.text = "LOCKOUT: Thrust %.1f N < Lunar Wt" % thrust_n
+		prop_value_label.text = "T/W %.2f (<1)" % tw
+		prop_sub_label.text = "LOCKOUT  •  %.0f m/s" % dv
 		prop_value_label.add_theme_color_override("font_color", COLOR_CRIT)
 	elif not dv_ok:
-		prop_value_label.text = "%.0f / %.0f m/s | T/W %.2f" % [dv, req_dv, tw]
-		prop_sub_label.text = "Δv SHORTFALL (%.0f N | %.0f s)" % [thrust_n, isp_s]
+		prop_value_label.text = "%.0f / %.0f m/s" % [dv, req_dv]
+		prop_sub_label.text = "WARN  •  T/W %.2f" % tw
 		prop_value_label.add_theme_color_override("font_color", COLOR_WARN)
 	else:
 		if eng:
-			prop_value_label.text = "%.0f / %.0f m/s | T/W %.2f" % [dv, req_dv, tw]
-			prop_sub_label.text = "F %.0f N | Isp %.0f s (+%.0f m/s)" % [thrust_n, isp_s, dv - req_dv]
+			prop_value_label.text = "%.0f m/s" % dv
+			prop_sub_label.text = "T/W %.2f  •  %.1f kN" % [tw, thrust_n / 1000.0]
 		else:
-			prop_value_label.text = "%.0f m/s | T/W %.2f [OK]" % [dv, tw]
-			prop_sub_label.text = "Req: %.0f m/s | Safe Descent" % req_dv
-		prop_value_label.add_theme_color_override("font_color", COLOR_OK)
+			prop_value_label.text = "%.0f m/s" % dv
+			prop_sub_label.text = "PASS  •  T/W %.2f" % tw
+		prop_value_label.add_theme_color_override("font_color", COLOR_WHITE)
 
 	_apply_card_style(card_propulsion, border_col, bg_col)
 
@@ -275,7 +361,7 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 		+ "Lunar T/W Ratio: %.4f (Thrust %.2f N / Weight %.1f N)\n" % [tw, thrust_n, float(snap.get("lunar_weight_n", 0.0))]
 		+ "Effective Isp: %.1f s\n" % isp_s
 		+ "Rule: T/W >= 1.0 mandatory against g_moon = 1.625 m/s^2\n\n"
-		+ "[NASA Citation]:\n%s\nNASA SP-2016-6105 Rev2 Sec 4.4 & 6.1" % orb_citation
+		+ "[NASA Citation]\n%s\nNASA SP-2016-6105 Rev2 Sec 4.4 & 6.1" % orb_citation
 	)
 
 
@@ -292,14 +378,13 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 	var bg_col: Color = COLOR_CARD_BG if power_ok else COLOR_CARD_ERR_BG
 
 	if eng:
-		power_value_label.text = "%+.1f W (%.0f/%.0f)" % [net_p, p_gen, p_use]
-		power_sub_label.text = "Batt %.0f Wh | Heat %.0f W" % [batt_wh, thermal_w]
+		power_value_label.text = "%+.0f W" % net_p
+		power_sub_label.text = "%.0f/%.0f W  •  %.1f kWh" % [p_gen, p_use, batt_wh / 1000.0]
 	else:
-		var status_str: String = "SURPLUS" if power_ok else "BLACKOUT"
-		power_value_label.text = "%+.0f W [%s]" % [net_p, status_str]
-		power_sub_label.text = "Batt %.0f Wh | %s" % [batt_wh, "PSR OK" if night_ok else "NO NIGHT PWR"]
+		power_value_label.text = "%+.0f W" % net_p
+		power_sub_label.text = "%s  •  %.1f kWh" % ["PSR OK" if (power_ok and night_ok) else ("DEFICIT" if not power_ok else "NO NIGHT"), batt_wh / 1000.0]
 
-	power_value_label.add_theme_color_override("font_color", COLOR_OK if power_ok else COLOR_CRIT)
+	power_value_label.add_theme_color_override("font_color", COLOR_WHITE if power_ok else COLOR_CRIT)
 	_apply_card_style(card_power, border_col, bg_col)
 
 	card_power.tooltip_text = (
@@ -309,7 +394,7 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 		+ "Net Margin: %+.2f W (Peak Load: %.1f W)\n" % [net_p, float(snap.get("power_peak_consumed_w", 0.0))]
 		+ "Energy Storage: %.0f Wh | RTG Thermal: %.0f W\n" % [batt_wh, thermal_w]
 		+ "Zone: %s (Solar %.0f%%)\n\n" % [str(zone.get("label", "Shackleton")), float(zone.get("solar_illumination_percent", 0.0))]
-		+ "[NASA Citation]:\nLRO / CLPS South Pole Illumination Constraint & NASA SP-2016-6105 Rev2"
+		+ "[NASA Citation]\nLRO / CLPS South Pole Illumination Constraint & NASA SP-2016-6105 Rev2"
 	)
 
 
@@ -325,14 +410,14 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 	var bg_col: Color = COLOR_CARD_BG if budget_ok else COLOR_CARD_ERR_BG
 
 	if eng:
-		budget_value_label.text = "$%.1fM / $%.0fM" % [total_cost, cap_musd]
-		budget_sub_label.text = "LV $%.1fM | Sub $%.1fM" % [lv_cost, sub_cost]
+		budget_value_label.text = "$%.0fM / $%.0fM" % [total_cost, cap_musd]
+		budget_sub_label.text = "LV $%.0fM  •  Sub $%.0fM" % [lv_cost, sub_cost]
 	else:
-		var badge: String = "SANDBOX" if is_sandbox else ("ON BUDGET" if budget_ok else "OVER CAP")
-		budget_value_label.text = "$%.1fM [%s]" % [total_cost, badge]
-		budget_sub_label.text = "Cap: $%.0fM | %s" % [cap_musd, str(lv.get("id", ""))]
+		var badge: String = "SANDBOX" if is_sandbox else ("PASS" if budget_ok else "OVER")
+		budget_value_label.text = "$%.0fM" % total_cost
+		budget_sub_label.text = "%s  •  Cap $%.0fM" % [badge, cap_musd]
 
-	budget_value_label.add_theme_color_override("font_color", COLOR_OK if budget_ok else COLOR_CRIT)
+	budget_value_label.add_theme_color_override("font_color", COLOR_WHITE if budget_ok else COLOR_CRIT)
 	_apply_card_style(card_budget, border_col, bg_col)
 
 	card_budget.tooltip_text = (
@@ -340,7 +425,7 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		+ "Launch Vehicle (%s): $%.2f M\n" % [str(lv.get("name", "")), lv_cost]
 		+ "Spacecraft Subsystems: $%.2f M\n" % sub_cost
 		+ "Total Mission Cost: $%.2f M / Cap: $%.1f M\n\n" % [total_cost, cap_musd]
-		+ "[NASA Citation]:\n%s" % str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
+		+ "[NASA Citation]\n%s" % str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
 	)
 
 
@@ -357,14 +442,13 @@ func _update_comms_card(snap: Dictionary, orbit: Dictionary, zone: Dictionary, e
 	var bg_col: Color = COLOR_CARD_BG if comms_ok else COLOR_CARD_WARN_BG
 
 	if eng:
-		comms_value_label.text = "%.1f / %.1f GB/d" % [data_gen, dl_cap]
-		comms_sub_label.text = "%.1f Mbps | DTE %.0f%% | Sci %.0f" % [dl_mbps, dte_pct, sci_eff]
+		comms_value_label.text = "%.0f / %.0f GB/d" % [data_gen, dl_cap]
+		comms_sub_label.text = "%.0f Mbps  •  DTE %.0f%%" % [dl_mbps, dte_pct]
 	else:
-		var badge: String = "LINK OK" if comms_ok else "BOTTLENECK"
-		comms_value_label.text = "%.1f Mbps [%s]" % [dl_mbps, badge]
-		comms_sub_label.text = "DTE %.0f%% | Sci %.0f pts" % [dte_pct, sci_eff]
+		comms_value_label.text = "%.1f Mbps" % dl_mbps
+		comms_sub_label.text = "%s  •  Sci %.0f pts" % ["PASS" if comms_ok else "LIMIT", sci_eff]
 
-	comms_value_label.add_theme_color_override("font_color", COLOR_OK if comms_ok else COLOR_WARN)
+	comms_value_label.add_theme_color_override("font_color", COLOR_WHITE if comms_ok else COLOR_WARN)
 	_apply_card_style(card_comms, border_col, bg_col)
 
 	card_comms.tooltip_text = (
@@ -374,7 +458,7 @@ func _update_comms_card(snap: Dictionary, orbit: Dictionary, zone: Dictionary, e
 		+ "Effective Downlink Capacity: %.2f GB/day\n" % dl_cap
 		+ "Daily Backlog: %.2f GB/day | Effective Science: %.1f pts\n" % [backlog, sci_eff]
 		+ "Orbit: %s | Site: %s\n\n" % [str(orbit.get("name", "")), str(zone.get("label", ""))]
-		+ "[NASA Citation]:\nNASA Deep Space Network (DSN) Link Budget & %s" % str(orbit.get("nasa_citation", ""))
+		+ "[NASA Citation]\nNASA Deep Space Network (DSN) Link Budget & %s" % str(orbit.get("nasa_citation", ""))
 	)
 
 
@@ -391,14 +475,14 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 	var bg_col: Color = COLOR_CARD_BG if rad_ok else (COLOR_CARD_ERR_BG if life_days <= 0.0 else COLOR_CARD_WARN_BG)
 
 	if eng:
-		rad_value_label.text = "%.1f d | %.1f mSv" % [life_days, dose_msv]
-		rad_sub_label.text = "Shield %.1f g/cm² | %.0f krad" % [shield_g, tol_krad]
+		rad_value_label.text = "%.0f d  •  %.0f mSv" % [life_days, dose_msv]
+		rad_sub_label.text = "%.1f g/cm²  •  %.0f krad" % [shield_g, tol_krad]
 	else:
-		var badge: String = "SURVIVAL OK" if rad_ok else ("CRASH/DEAD" if life_days <= 0.0 else "SHORT LIFE")
-		rad_value_label.text = "%.0f d [%s]" % [life_days, badge]
-		rad_sub_label.text = "Dose %.1f mSv | %.0f krad" % [dose_msv, tol_krad]
+		var badge: String = "PASS" if rad_ok else ("FAIL" if life_days <= 0.0 else "SHORT")
+		rad_value_label.text = "%.0f d" % life_days
+		rad_sub_label.text = "%s  •  %.0f mSv" % [badge, dose_msv]
 
-	rad_value_label.add_theme_color_override("font_color", COLOR_OK if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
+	rad_value_label.add_theme_color_override("font_color", COLOR_WHITE if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
 	_apply_card_style(card_radiation, border_col, bg_col)
 
 	card_radiation.tooltip_text = (
@@ -407,7 +491,7 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 		+ "Cumulative Mission Dose: %.2f mSv (Limit: %.1f mSv)\n" % [dose_msv, dose_limit]
 		+ "Daily GCR Rate: %.3f mSv/day | SPE Dose: %.2f mSv\n" % [float(snap.get("daily_gcr_msv", 0.0)), float(snap.get("spe_dose_msv", 0.0))]
 		+ "Areal Shielding: %.1f g/cm^2 | Avionics Tol: %.0f krad\n\n" % [shield_g, tol_krad]
-		+ "[NASA Citation]:\n%s" % NasaDataLoader.get_radiation_citation()
+		+ "[NASA Citation]\n%s" % NasaDataLoader.get_radiation_citation()
 	)
 
 
@@ -418,8 +502,8 @@ func _apply_card_style(card: PanelContainer, border_col: Color, bg_col: Color) -
 	style.set_border_width_all(1)
 	style.border_width_top = 2
 	style.set_corner_radius_all(4)
-	style.content_margin_left = 7
-	style.content_margin_right = 7
+	style.content_margin_left = 8
+	style.content_margin_right = 8
 	style.content_margin_top = 4
 	style.content_margin_bottom = 4
 	card.add_theme_stylebox_override("panel", style)

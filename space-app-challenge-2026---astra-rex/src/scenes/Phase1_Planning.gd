@@ -2,66 +2,90 @@ class_name Phase1Planning
 extends Control
 
 ## Phase 1: Pre-Phase A Mission Formulation Screen.
-## Configures Shackleton Crater science objectives, landing zone, 1-4 player asymmetric roles,
-## launch vehicle selection, operational orbit, and live LaunchVehicleCheck diagnostics.
+## Organized into 3 concise cards (Mission & Roles, Launch Vehicle, Target Orbit)
+## with progressive-disclosure engineering explanations and NASA citations in tooltips.
 
 signal proceed_to_vab_requested()
 
 const OBJECTIVES: Array[Dictionary] = [
 	{
 		"id": "obj_ice_assay",
-		"title": "Polar Water-Ice Regolith Assay",
+		"title": "Polar Ice Assay",
+		"stats": "Drill + MSolo  •  PSR Volatiles",
 		"summary": "Subsurface volatile extraction and mass spectrometry inside Shackleton Crater.",
 		"recommended_parts": "TRIDENT Ice Drill + MSolo Mass Spectrometer + MMRTG",
 		"citation": "NASA CLPS PRIME-1 / VIPER Science Traceability Matrix (STM)"
 	},
 	{
 		"id": "obj_psr_radar",
-		"title": "Permanent Shadow Radar Mapping",
+		"title": "PSR Radar Mapping",
+		"stats": "Mini-RF SAR  •  Ka-Band Link",
 		"summary": "High-bandwidth L/S-band SAR backscatter mapping across permanently shadowed craters.",
 		"recommended_parts": "Mini-RF SAR + Ka-Band High-Gain Dish + Rad-Hard ADCS",
 		"citation": "NASA LRO Mini-RF Polar Volatiles & Artemis Exploration Strategy"
 	},
 	{
 		"id": "obj_ridge_precursor",
-		"title": "Artemis Connecting Ridge Precursor",
+		"title": "Ridge Precursor",
+		"stats": "Solar + LiDAR  •  Sunlit Site",
 		"summary": "Long-duration solar/comms beacon & hazard survey on sunlit Shackleton Ridge.",
 		"recommended_parts": "Articulated Vertical Solar Array + LiDAR TRN + Ka-Band HGA",
 		"citation": "NASA Artemis III Candidate Landing Site Characterization (LRO LOLA)"
 	}
 ]
 
+const ZONE_SHORT_NAMES: Dictionary = {
+	"connecting_ridge_rim": "Connecting Ridge",
+	"inner_wall_hazard": "Inner Crater Wall",
+	"crater_floor_psr": "Shackleton Floor (PSR)"
+}
+
+const LV_SHORT_NAMES: Dictionary = {
+	"sls_block1": "SLS Block 1",
+	"falcon_heavy_clps": "Falcon Heavy CLPS",
+	"vulcan_centaur_vc6": "Vulcan Centaur VC6",
+	"falcon_9_clps": "Falcon 9 Block 5"
+}
+
+const ORBIT_SHORT_NAMES: Dictionary = {
+	"orbit_llo_polar": "LLO 100 km Polar",
+	"orbit_nrho_gateway": "NRHO Gateway L2"
+}
+
 const ROLE_DEFS: Array[Dictionary] = [
 	{
 		"role": MissionState.TeamRole.PLANNER,
 		"short": "1. Mission Planner",
-		"focus": "TLI Wet Mass (kg) • Budget Cap (M$) • Orbit Δv & DTE (%)"
+		"stats": "Mass  •  Cost  •  Orbit Δv",
+		"focus": "TLI Wet Mass (kg), Lifecycle Budget Cap (M$), Orbit Delta-V & DTE (%)"
 	},
 	{
 		"role": MissionState.TeamRole.PROPULSION_GNC,
 		"short": "2. Propulsion & GNC",
-		"focus": "Lunar T/W (>= 1.0) • Tsiolkovsky Δv (m/s) • TRN Slope (<= 15°)"
+		"stats": "T/W  •  Δv  •  TRN Slope",
+		"focus": "Lunar T/W (>= 1.0), Tsiolkovsky Delta-V (m/s), Hazard LiDAR Slope (<= 15 deg)"
 	},
 	{
 		"role": MissionState.TeamRole.SCIENCE,
 		"short": "3. Science Director",
-		"focus": "Effective Science (pts) • Payload Data (GB/day) • Site Multiplier"
+		"stats": "Science  •  Data Rate",
+		"focus": "Effective Science Return (pts), Payload Telemetry (GB/day), Site Multiplier"
 	},
 	{
 		"role": MissionState.TeamRole.COMMS_POWER,
 		"short": "4. Comms & Power",
-		"focus": "Net Power (W) • Battery (Wh) • DSN Link (Mbps) • Dose (mSv)"
+		"stats": "Power  •  DSN  •  Rad Dose",
+		"focus": "Net Power (W), Battery Storage (Wh), DSN Link (Mbps), Radiation Dose (mSv)"
 	}
 ]
 
-const COLOR_PANEL_BG: Color = Color(0.065, 0.088, 0.135, 0.96)
-const COLOR_CARD_BG: Color = Color(0.095, 0.128, 0.195, 0.96)
-const COLOR_CARD_SEL: Color = Color(0.11, 0.19, 0.30, 0.98)
-const COLOR_OK: Color = Color(0.24, 0.88, 0.56, 1.0)
-const COLOR_WARN: Color = Color(0.98, 0.74, 0.22, 1.0)
-const COLOR_CRIT: Color = Color(1.0, 0.30, 0.34, 1.0)
-const COLOR_ACCENT: Color = Color(0.32, 0.74, 1.0, 1.0)
-const COLOR_TEXT_SUB: Color = Color(0.72, 0.80, 0.90, 1.0)
+const COLOR_PANEL_BG: Color = Color(0.055, 0.082, 0.145, 0.96)
+const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)       # #10B981
+const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)     # #F59E0B
+const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)     # #EF4444
+const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)   # #38BDF8
+const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)          # #FFFFFF
+const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
 
 @onready var objective_list: VBoxContainer = %ObjectiveList
 @onready var zone_list: VBoxContainer = %ZoneList
@@ -72,7 +96,7 @@ const COLOR_TEXT_SUB: Color = Color(0.72, 0.80, 0.90, 1.0)
 @onready var orbit_list: VBoxContainer = %OrbitList
 @onready var check_status_banner: Label = %CheckStatusBanner
 @onready var check_metrics_grid: GridContainer = %CheckMetricsGrid
-@onready var check_reasons_label: RichTextLabel = %CheckReasonsLabel
+@onready var check_reasons_label: Label = %CheckReasonsLabel
 @onready var btn_proceed_vab: Button = %BtnProceedVAB
 
 var _obj_buttons: Dictionary = {}
@@ -92,6 +116,7 @@ func _ready() -> void:
 	_build_launch_vehicle_buttons()
 	_build_orbit_buttons()
 	_build_check_grid()
+	_style_proceed_button()
 
 	btn_proceed_vab.pressed.connect(_on_proceed_pressed)
 	if not MissionState.state_updated.is_connected(_on_state_updated):
@@ -108,28 +133,47 @@ func _style_background_panels() -> void:
 			continue
 		var style: StyleBoxFlat = StyleBoxFlat.new()
 		style.bg_color = COLOR_PANEL_BG
-		style.border_color = Color(0.18, 0.30, 0.48, 0.85)
+		style.border_color = Color(0.18, 0.29, 0.45, 0.90)
 		style.set_border_width_all(1)
 		style.set_corner_radius_all(6)
-		style.content_margin_left = 10
-		style.content_margin_right = 10
-		style.content_margin_top = 8
-		style.content_margin_bottom = 8
+		style.content_margin_left = 16
+		style.content_margin_right = 16
+		style.content_margin_top = 14
+		style.content_margin_bottom = 14
 		panel.add_theme_stylebox_override("panel", style)
+
+
+func _style_proceed_button() -> void:
+	var normal_sb: StyleBoxFlat = StyleBoxFlat.new()
+	normal_sb.bg_color = Color(0.06, 0.28, 0.44, 0.98)
+	normal_sb.border_color = COLOR_ACCENT
+	normal_sb.set_border_width_all(1)
+	normal_sb.set_corner_radius_all(6)
+	normal_sb.content_margin_left = 14
+	normal_sb.content_margin_right = 14
+	normal_sb.content_margin_top = 10
+	normal_sb.content_margin_bottom = 10
+
+	var hover_sb: StyleBoxFlat = normal_sb.duplicate() as StyleBoxFlat
+	hover_sb.bg_color = Color(0.08, 0.36, 0.56, 1.0)
+	btn_proceed_vab.add_theme_stylebox_override("normal", normal_sb)
+	btn_proceed_vab.add_theme_stylebox_override("hover", hover_sb)
+	btn_proceed_vab.add_theme_color_override("font_color", COLOR_WHITE)
 
 
 func _build_objective_buttons() -> void:
 	for obj_def: Dictionary in OBJECTIVES:
 		var title: String = str(obj_def.get("title", ""))
+		var stats: String = str(obj_def.get("stats", ""))
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0, 46)
-		btn.text = "%s\n%s" % [title, str(obj_def.get("summary", ""))]
-		btn.add_theme_font_size_override("font_size", 11)
-		btn.tooltip_text = "%s\nRecommended Hardware: %s\n\n[Reference]: %s" % [
+		btn.custom_minimum_size = Vector2(0, 52)
+		btn.text = "%s\n%s" % [title, stats]
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.tooltip_text = "%s\n%s\nRecommended Hardware: %s\n\n[NASA Reference]\n%s" % [
 			title,
+			str(obj_def.get("summary", "")),
 			str(obj_def.get("recommended_parts", "")),
 			str(obj_def.get("citation", ""))
 		]
@@ -148,7 +192,8 @@ func _build_landing_zone_buttons() -> void:
 		if not zones.has(zone_id):
 			continue
 		var zone: Dictionary = zones[zone_id] as Dictionary
-		var label_str: String = str(zone.get("label", zone_id))
+		var full_label: String = str(zone.get("label", zone_id))
+		var short_name: String = str(ZONE_SHORT_NAMES.get(zone_id, full_label))
 		var slope: float = float(zone.get("mean_slope_deg", 0.0))
 		var solar_pct: float = float(zone.get("solar_illumination_percent", 0.0))
 		var dte_pct: float = float(zone.get("dte_visibility_percent", 0.0))
@@ -158,17 +203,16 @@ func _build_landing_zone_buttons() -> void:
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0, 44)
-		btn.text = "%s (x%.2f Sci)\nSlope %.1f° | Sun %.0f%% | DTE %.0f%% | Elev %.0f m" % [
-			label_str, sci_mult, slope, solar_pct, dte_pct, elev_m
+		btn.custom_minimum_size = Vector2(0, 52)
+		btn.text = "%s\n%.1f°  •  %.0f%% Sun  •  x%.2f Sci" % [
+			short_name, slope, solar_pct, sci_mult
 		]
-		btn.add_theme_font_size_override("font_size", 11)
+		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = (
-			"Target Landing Site: %s\n" % label_str
+			"Target Landing Site: %s\n" % full_label
 			+ "Elevation (LOLA): %.1f m | Mean Slope: %.1f deg\n" % [elev_m, slope]
 			+ "Solar Illumination: %.0f%% | DTE Visibility: %.0f%%\n" % [solar_pct, dte_pct]
-			+ "Science Value Multiplier: x%.2f\n\n[NASA Citation]: %s" % [sci_mult, citation]
+			+ "Science Value Multiplier: x%.2f\n\n[NASA Citation]\n%s" % [sci_mult, citation]
 		)
 		btn.pressed.connect(_on_zone_selected.bind(zone_id))
 		zone_list.add_child(btn)
@@ -180,8 +224,9 @@ func _build_team_controls() -> void:
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size = Vector2(0, 34)
 		btn.text = "%dP" % count if count > 1 else "1P Solo"
-		btn.add_theme_font_size_override("font_size", 11)
+		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "Configure team collaboration for %d mission engineer(s)." % count
 		btn.pressed.connect(_on_team_size_selected.bind(count))
 		team_size_row.add_child(btn)
@@ -192,10 +237,9 @@ func _build_team_controls() -> void:
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0, 44)
-		btn.text = "%s\n%s" % [str(r_def.get("short", "")), str(r_def.get("focus", ""))]
-		btn.add_theme_font_size_override("font_size", 11)
+		btn.custom_minimum_size = Vector2(0, 50)
+		btn.text = "%s\n%s" % [str(r_def.get("short", "")), str(r_def.get("stats", ""))]
+		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "Asymmetric Team Role: %s\nPriority Metrics: %s" % [
 			MissionState.get_role_label(role_id),
 			str(r_def.get("focus", ""))
@@ -210,6 +254,7 @@ func _build_launch_vehicle_buttons() -> void:
 	for lv: Dictionary in vehicles:
 		var lv_id: String = str(lv.get("id", ""))
 		var lv_name: String = str(lv.get("name", lv_id))
+		var short_name: String = str(LV_SHORT_NAMES.get(lv_id, lv_name))
 		var max_tli: float = float(lv.get("max_tli_payload_kg", 0.0))
 		var cost: float = float(lv.get("cost_m_usd", 0.0))
 		var fairing: float = float(lv.get("fairing_diameter_m", 5.2))
@@ -219,16 +264,15 @@ func _build_launch_vehicle_buttons() -> void:
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0, 44)
-		btn.text = "%s\nMax TLI: %.0f kg | $%.1f M | Fairing %.1f m | Rel %.0f%%" % [
-			lv_name, max_tli, cost, fairing, rel
+		btn.custom_minimum_size = Vector2(0, 58)
+		btn.text = "%s\n%.0f kg  •  $%.0fM  •  %.1f m" % [
+			short_name, max_tli, cost, fairing
 		]
-		btn.add_theme_font_size_override("font_size", 11)
+		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = (
 			"%s\nMax Trans-Lunar Injection (TLI) Payload: %.1f kg\n" % [lv_name, max_tli]
 			+ "Launch Cost: $%.1f M | Fairing Diameter: %.1f m\n" % [cost, fairing]
-			+ "Reliability: %.1f%%\n\n[NASA Citation]: %s" % [rel, citation]
+			+ "Reliability: %.1f%%\n\n[NASA Citation]\n%s" % [rel, citation]
 		)
 		btn.pressed.connect(_on_launch_vehicle_selected.bind(lv_id))
 		lv_list.add_child(btn)
@@ -240,6 +284,7 @@ func _build_orbit_buttons() -> void:
 	for orb: Dictionary in orbits:
 		var orb_id: String = str(orb.get("id", ""))
 		var orb_name: String = str(orb.get("name", orb_id))
+		var short_name: String = str(ORBIT_SHORT_NAMES.get(orb_id, orb_name))
 		var req_dv: float = float(orb.get("delta_v_descent_m_s", 1750.0))
 		var dte_pct: float = float(orb.get("dte_visibility_percent", 50.0))
 		var period_h: float = float(orb.get("orbital_period_hours", 1.97))
@@ -249,13 +294,12 @@ func _build_orbit_buttons() -> void:
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0, 48)
-		btn.text = "%s\nReq Δv: %.0f m/s | DTE Vis: %.0f%% | Period: %.2f h" % [
-			orb_name, req_dv, dte_pct, period_h
+		btn.custom_minimum_size = Vector2(0, 58)
+		btn.text = "%s\n%.0f m/s  •  %.0f%% DTE  •  %.1f h" % [
+			short_name, req_dv, dte_pct, period_h
 		]
-		btn.add_theme_font_size_override("font_size", 11)
-		btn.tooltip_text = "%s\n%s\n\n[NASA Citation]: %s" % [orb_name, desc, citation]
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.tooltip_text = "%s\n%s\n\n[NASA Citation]\n%s" % [orb_name, desc, citation]
 		btn.pressed.connect(_on_orbit_selected.bind(orb_id))
 		orbit_list.add_child(btn)
 		_orbit_buttons[orb_id] = btn
@@ -263,11 +307,11 @@ func _build_orbit_buttons() -> void:
 
 func _build_check_grid() -> void:
 	var rows: Array[Array] = [
-		["mass", "TLI Mass Cap (m0)"],
-		["dv", "Orbit Descent Δv"],
-		["tw", "Lunar T/W (>= 1.0)"],
-		["dte", "DTE Contact Window"],
-		["cost", "Mission Cost vs Cap"]
+		["mass", "TLI Mass Cap"],
+		["dv", "Descent Δv"],
+		["tw", "Lunar T/W"],
+		["dte", "DTE Contact"],
+		["cost", "Mission Cost"]
 	]
 	for entry: Array in rows:
 		var key: String = str(entry[0])
@@ -275,15 +319,15 @@ func _build_check_grid() -> void:
 
 		var name_lbl: Label = Label.new()
 		name_lbl.text = title_text
-		name_lbl.add_theme_font_size_override("font_size", 11)
-		name_lbl.add_theme_color_override("font_color", COLOR_TEXT_SUB)
+		name_lbl.add_theme_font_size_override("font_size", 12)
+		name_lbl.add_theme_color_override("font_color", COLOR_MUTED)
 		check_metrics_grid.add_child(name_lbl)
 
 		var val_lbl: Label = Label.new()
 		val_lbl.text = "--"
 		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		val_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		val_lbl.add_theme_font_size_override("font_size", 11)
+		val_lbl.add_theme_font_size_override("font_size", 14)
 		check_metrics_grid.add_child(val_lbl)
 
 		_check_labels[key] = val_lbl
@@ -370,33 +414,32 @@ func _refresh_ui(snap: Dictionary) -> void:
 
 
 func _update_role_priority_callout(active_r: int, snap: Dictionary) -> void:
-	var role_title: String = MissionState.get_role_label(active_r)
 	var detail: String = ""
 	match active_r:
 		MissionState.TeamRole.PLANNER:
-			detail = "Watch: m0 = %.1f kg | Cost $%.1fM | Req Δv %.0f m/s" % [
+			detail = "Focus: m0 %.0f kg  •  Cost $%.0fM  •  Req Δv %.0f m/s" % [
 				float(snap.get("m0_wet_kg", 0.0)),
 				float(snap.get("total_cost_musd", 0.0)),
 				float(snap.get("required_dv_ms", 1750.0))
 			]
 		MissionState.TeamRole.PROPULSION_GNC:
-			detail = "Watch: Lunar T/W = %.3f | Δv = %.0f m/s | TRN LiDAR: %s" % [
+			detail = "Focus: T/W %.2f  •  Δv %.0f m/s  •  TRN %s" % [
 				float(snap.get("lunar_tw_ratio", 0.0)),
 				float(snap.get("delta_v_ms", 0.0)),
-				"ACTIVE" if bool(snap.get("has_lidar_trn", false)) else "MISSING"
+				"OK" if bool(snap.get("has_lidar_trn", false)) else "NONE"
 			]
 		MissionState.TeamRole.SCIENCE:
-			detail = "Watch: Eff. Sci = %.1f pts | Data = %.1f GB/d" % [
+			detail = "Focus: Sci %.0f pts  •  Data %.1f GB/d" % [
 				float(snap.get("science_points_effective", 0.0)),
 				float(snap.get("data_generated_gb_day", 0.0))
 			]
 		MissionState.TeamRole.COMMS_POWER:
-			detail = "Watch: Net Pwr = %+.1f W | DSN %.1f Mbps | Dose %.1f mSv" % [
+			detail = "Focus: Pwr %+.0f W  •  DSN %.0f Mbps  •  %.0f mSv" % [
 				float(snap.get("net_power_w", 0.0)),
 				float(snap.get("downlink_mbps", 0.0)),
 				float(snap.get("total_mission_dose_msv", 0.0))
 			]
-	role_priority_label.text = "Active Role: %s\n%s" % [role_title, detail]
+	role_priority_label.text = detail
 	role_priority_label.add_theme_color_override("font_color", COLOR_ACCENT)
 
 
@@ -417,37 +460,54 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 	var cost: float = float(check.get("total_cost_musd", 0.0))
 	var cap: float = float(check.get("budget_cap_musd", 350.0))
 
-	if compat:
-		check_status_banner.text = "LaunchVehicleCheck: PASS — READY FOR TLI"
-		check_status_banner.add_theme_color_override("font_color", COLOR_OK)
-	else:
-		check_status_banner.text = "LaunchVehicleCheck: FAIL — VIOLATIONS DETECTED"
-		check_status_banner.add_theme_color_override("font_color", COLOR_CRIT)
+	var pill_color: Color = COLOR_OK if compat else COLOR_CRIT
+	check_status_banner.text = "COMPATIBILITY: PASS" if compat else "COMPATIBILITY: FAIL"
+	check_status_banner.add_theme_color_override("font_color", COLOR_WHITE)
 
-	check_status_banner.tooltip_text = "Launch Compatibility Audit\n[Reference]: %s" % str(check.get("citation", ""))
+	var pill: StyleBoxFlat = StyleBoxFlat.new()
+	pill.bg_color = Color(pill_color.r * 0.35, pill_color.g * 0.35, pill_color.b * 0.35, 0.96)
+	pill.border_color = pill_color
+	pill.set_border_width_all(1)
+	pill.set_corner_radius_all(6)
+	pill.content_margin_left = 12
+	pill.content_margin_right = 12
+	pill.content_margin_top = 8
+	pill.content_margin_bottom = 8
+	check_status_banner.add_theme_stylebox_override("normal", pill)
+
+	var reasons_raw: Array = check.get("reasons", []) as Array
+	var reason_lines: Array[String] = []
+	for r_var: Variant in reasons_raw:
+		reason_lines.append("• " + str(r_var))
+
+	var full_diag: String = "\n".join(reason_lines)
+	check_status_banner.tooltip_text = (
+		"Launch Compatibility Diagnostic\n%s\n\n[NASA Citation]\n%s"
+		% [full_diag, str(check.get("citation", ""))]
+	)
 
 	var lbl_mass: Label = _check_labels["mass"] as Label
-	lbl_mass.text = "%.1f / %.0f kg [%s]" % [m0_wet, max_tli, "PASS" if mass_ok else "FAIL"]
+	lbl_mass.text = "%.0f / %.0f kg" % [m0_wet, max_tli]
 	lbl_mass.add_theme_color_override("font_color", COLOR_OK if mass_ok else COLOR_CRIT)
 
 	var lbl_dv: Label = _check_labels["dv"] as Label
-	lbl_dv.text = "%.0f / %.0f m/s [%s]" % [dv, req_dv, "PASS" if dv_ok else "FAIL"]
+	lbl_dv.text = "%.0f / %.0f m/s" % [dv, req_dv]
 	lbl_dv.add_theme_color_override("font_color", COLOR_OK if dv_ok else COLOR_WARN)
 
 	var lbl_tw: Label = _check_labels["tw"] as Label
-	lbl_tw.text = "%.3f [%s]" % [tw, "PASS" if tw_ok else "LOCKOUT"]
+	lbl_tw.text = "%.2f %s" % [tw, "(PASS)" if tw_ok else "(FAIL)"]
 	lbl_tw.add_theme_color_override("font_color", COLOR_OK if tw_ok else COLOR_CRIT)
 
 	var lbl_dte: Label = _check_labels["dte"] as Label
-	lbl_dte.text = "%.0f%% Direct-to-Earth" % dte_pct
+	lbl_dte.text = "%.0f%%" % dte_pct
 	lbl_dte.add_theme_color_override("font_color", COLOR_OK if dte_pct >= 35.0 else COLOR_WARN)
 
 	var lbl_cost: Label = _check_labels["cost"] as Label
-	lbl_cost.text = "$%.1fM / $%.0fM [%s]" % [cost, cap, "PASS" if budget_ok else "OVER"]
+	lbl_cost.text = "$%.0fM / $%.0fM" % [cost, cap]
 	lbl_cost.add_theme_color_override("font_color", COLOR_OK if budget_ok else COLOR_CRIT)
 
-	var reasons_raw: Array = check.get("reasons", []) as Array
-	var lines: Array[String] = []
-	for r_var: Variant in reasons_raw:
-		lines.append("• " + str(r_var))
-	check_reasons_label.text = "\n".join(lines)
+	if compat:
+		check_reasons_label.text = "Ready for TLI injection. Hover badge for margins."
+	else:
+		check_reasons_label.text = "%d violation(s) detected. Hover badge for details." % reason_lines.size()
+	check_reasons_label.tooltip_text = check_status_banner.tooltip_text

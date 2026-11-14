@@ -1,0 +1,323 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/scenes/Phase3_LunarSim.gd" id="1_p3"]
+[ext_resource type="PackedScene" path="res://src/scenes/LanderChassis.tscn" id="2_chassis"]
+[ext_resource type="Theme" path="res://src/ui/MissionControlTheme.tres" id="3_theme"]
+
+[sub_resource type="Environment" id="Environment_lunar"]
+background_mode = 1
+background_color = Color(0.012, 0.018, 0.032, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.45, 0.54, 0.72, 1)
+ambient_light_energy = 0.24
+tonemap_mode = 2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_plume"]
+top_radius = 0.14
+bottom_radius = 0.58
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_plume"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.42, 0.85, 1, 0.78)
+
+[node name="Phase3_LunarSim" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_p3")
+
+[node name="LunarWorld" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="SunLight" type="DirectionalLight3D" parent="LunarWorld"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 35, 0)
+light_color = Color(1, 0.98, 0.92, 1)
+light_energy = 2.45
+shadow_enabled = true
+directional_shadow_max_distance = 160.0
+
+[node name="EarthFillLight" type="DirectionalLight3D" parent="LunarWorld"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 35, 0)
+light_color = Color(0.48, 0.68, 1, 1)
+light_energy = 0.35
+
+[node name="TerrainBody" type="StaticBody3D" parent="LunarWorld"]
+unique_name_in_owner = true
+collision_layer = 2
+collision_mask = 2
+
+[node name="TerrainMesh" type="MeshInstance3D" parent="LunarWorld/TerrainBody"]
+unique_name_in_owner = true
+
+[node name="TerrainCollisionShape" type="CollisionShape3D" parent="LunarWorld/TerrainBody"]
+unique_name_in_owner = true
+
+[node name="ZoneMarkers" type="Node3D" parent="LunarWorld"]
+unique_name_in_owner = true
+
+[node name="LanderPivot" type="Node3D" parent="LunarWorld"]
+unique_name_in_owner = true
+
+[node name="LanderChassis" parent="LunarWorld/LanderPivot" instance=ExtResource("2_chassis")]
+unique_name_in_owner = true
+
+[node name="ThrusterPlume" type="MeshInstance3D" parent="LunarWorld/LanderPivot"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0)
+visible = false
+mesh = SubResource("CylinderMesh_plume")
+surface_material_override/0 = SubResource("StandardMaterial3D_plume")
+
+[node name="LandingRayCast" type="RayCast3D" parent="LunarWorld"]
+unique_name_in_owner = true
+target_position = Vector3(0, -80, 0)
+collision_mask = 2
+
+[node name="SolarRayCast" type="RayCast3D" parent="LunarWorld"]
+unique_name_in_owner = true
+target_position = Vector3(-95, 3, -31)
+collision_mask = 2
+
+[node name="EarthDTERayCast" type="RayCast3D" parent="LunarWorld"]
+unique_name_in_owner = true
+target_position = Vector3(-92, 11, -38)
+collision_mask = 2
+
+[node name="CameraPivot" type="Node3D" parent="LunarWorld"]
+unique_name_in_owner = true
+
+[node name="LunarCamera" type="Camera3D" parent="LunarWorld/CameraPivot"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18.5)
+environment = SubResource("Environment_lunar")
+fov = 48.0
+far = 350.0
+
+[node name="RaycastTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+wait_time = 0.2
+
+[node name="UILayout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="LeftPanel" type="PanelContainer" parent="UILayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(305, 0)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="VBox" type="VBoxContainer" parent="UILayout/LeftPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.945, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "SHACKLETON DESCENT & OPS"
+
+[node name="SimStatusPill" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+text = "PID TERMINAL DESCENT ACTIVE"
+
+[node name="HSep1" type="HSeparator" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+
+[node name="ZoneTitle" type="Label" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "TARGET LANDING SITE (LRO LOLA)"
+
+[node name="ZoneBtns" type="VBoxContainer" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="BtnZoneRim" type="Button" parent="UILayout/LeftPanel/VBox/ZoneBtns"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+alignment = 0
+theme_override_font_sizes/font_size = 13
+text = "1. Shackleton Rim (7.5° • Sunlit)"
+
+[node name="BtnZoneWall" type="Button" parent="UILayout/LeftPanel/VBox/ZoneBtns"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+alignment = 0
+theme_override_font_sizes/font_size = 13
+text = "2. Crater Inner Wall (31° Hazard)"
+
+[node name="BtnZonePSR" type="Button" parent="UILayout/LeftPanel/VBox/ZoneBtns"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+alignment = 0
+theme_override_font_sizes/font_size = 13
+text = "3. Crater Floor PSR (0% Sun • 1.6x Sci)"
+
+[node name="HSep2" type="HSeparator" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+
+[node name="TelemetryTitle" type="Label" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "LIVE FLIGHT & SURFACE TELEMETRY"
+
+[node name="TelemetryZoneLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Site: Shackleton Rim"
+
+[node name="TelemetryAGLLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "AGL: 26.0 m  •  T/W 0.00"
+
+[node name="TelemetryVelLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Vz: 0.00 m/s  •  Δv 0 m/s"
+
+[node name="TelemetrySlopeLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Slope: 7.5°  •  TRN ON"
+
+[node name="TelemetrySolarLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Solar: SUNLIT  •  +0 W"
+
+[node name="TelemetryDITELabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "DSN: DTE CLEAR (50%)"
+
+[node name="TelemetryRadLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Rad (GCR): 0.0 / 100 mSv"
+
+[node name="TelemetryDayLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Surface Day 0 / 180 d  •  ACTIVE"
+
+[node name="CenterViewportArea" type="VBoxContainer" parent="UILayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="CameraBar" type="HBoxContainer" parent="UILayout/CenterViewportArea"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="HintLabel" type="Label" parent="UILayout/CenterViewportArea/CameraBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "Drag: Orbit  •  Scroll: Zoom"
+
+[node name="BtnLidarOverlay" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+theme_override_font_sizes/font_size = 13
+text = "LiDAR Slope (>15°)"
+
+[node name="BtnResetCam" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Reset Cam"
+
+[node name="ViewportInputCatcher" type="Control" parent="UILayout/CenterViewportArea"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_default_cursor_shape = 2
+
+[node name="BottomBar" type="PanelContainer" parent="UILayout/CenterViewportArea"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HBox" type="HBoxContainer" parent="UILayout/CenterViewportArea/BottomBar"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BtnBackVAB" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "<- VAB"
+
+[node name="BtnRestartDescent" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Launch / Restart Descent"
+
+[node name="BtnSPEStorm" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+theme_override_font_sizes/font_size = 13
+text = "Solar Storm (SPE)"
+
+[node name="BtnSafeMode" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+theme_override_font_sizes/font_size = 13
+text = "Safe Mode"
+
+[node name="BtnAdvanceDays" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Advance +30 Days"
+
+[node name="Spacer" type="Control" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnProceedDebrief" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Pareto Debrief ->"

@@ -1,10 +1,11 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://src/scenes/Phase2_VAB.gd" id="1_vab"]
 [ext_resource type="PackedScene" path="res://src/scenes/LanderChassis.tscn" id="2_chassis"]
 [ext_resource type="PackedScene" path="res://assets/models/vab_gantry.glb" id="3_gantry"]
 [ext_resource type="PackedScene" path="res://assets/models/sls_block1.glb" id="4_sls"]
 [ext_resource type="PackedScene" path="res://assets/models/dsn_70m_dish.glb" id="5_dsn"]
+[ext_resource type="Theme" path="res://src/ui/MissionControlTheme.tres" id="6_theme"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vab"]
 sky_top_color = Color(0.035, 0.055, 0.095, 1)
@@ -19,7 +20,7 @@ sky_material = SubResource("ProceduralSkyMaterial_vab")
 background_mode = 2
 sky = SubResource("Sky_vab")
 ambient_light_source = 2
-ambient_light_color = Color(0.32, 0.40, 0.52, 1)
+ambient_light_color = Color(0.32, 0.4, 0.52, 1)
 ambient_light_energy = 0.65
 tonemap_mode = 2
 
@@ -70,6 +71,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("6_theme")
 script = ExtResource("1_vab")
 
 [node name="VABWorld" type="Node3D" parent="."]
@@ -118,11 +120,12 @@ transform = Transform3D(0.45, 0, 0, 0, 0.45, 0, 0, 0, 0.45, -12, 0, -12)
 
 [node name="CameraPivot" type="Node3D" parent="VABWorld"]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
 
 [node name="VABCamera" type="Camera3D" parent="VABWorld/CameraPivot"]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5.8)
+h_offset = -0.85
 fov = 48.0
 far = 200.0
 
@@ -131,73 +134,77 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 8.0
-offset_right = -10.0
-offset_bottom = -8.0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = -10.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 12
 
 [node name="LeftDrawer" type="PanelContainer" parent="UILayout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(335, 0)
+custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="UILayout/LeftDrawer"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="UILayout/LeftDrawer/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "SUBSYSTEM CATALOG (SP-2016-6105)"
+theme_override_colors/font_color = Color(0.902, 0.945, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Subsystem Catalog"
 
 [node name="CategoryTabs" type="GridContainer" parent="UILayout/LeftDrawer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/h_separation = 4
-theme_override_constants/v_separation = 4
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
 columns = 4
 
 [node name="CatalogScroll" type="ScrollContainer" parent="UILayout/LeftDrawer/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
 [node name="CatalogVBox" type="VBoxContainer" parent="UILayout/LeftDrawer/VBox/CatalogScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 5
+theme_override_constants/separation = 8
 
 [node name="CenterViewportArea" type="VBoxContainer" parent="UILayout"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
+theme_override_constants/separation = 8
 
 [node name="CameraBar" type="HBoxContainer" parent="UILayout/CenterViewportArea"]
 layout_mode = 2
-alignment = 1
+alignment = 2
 theme_override_constants/separation = 8
 
 [node name="HintLabel" type="Label" parent="UILayout/CenterViewportArea/CameraBar"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "Drag: Orbit 3D | Scroll: Zoom"
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 12
+text = "Drag: Orbit  •  Scroll: Zoom"
 
 [node name="BtnResetCam" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "Reset Cam"
+theme_override_font_sizes/font_size = 14
+text = "Reset View"
 
 [node name="BtnTurntable" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 toggle_mode = true
-text = "Auto-Turntable"
+text = "Turntable"
 
 [node name="ViewportInputCatcher" type="Control" parent="UILayout/CenterViewportArea"]
 unique_name_in_owner = true
@@ -205,72 +212,43 @@ layout_mode = 2
 size_flags_vertical = 3
 mouse_default_cursor_shape = 2
 
-[node name="RightDrawer" type="PanelContainer" parent="UILayout"]
+[node name="BottomBar" type="PanelContainer" parent="UILayout/CenterViewportArea"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
 
-[node name="VBox" type="VBoxContainer" parent="UILayout/RightDrawer"]
+[node name="HBox" type="HBoxContainer" parent="UILayout/CenterViewportArea/BottomBar"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
-[node name="SlotTitle" type="Label" parent="UILayout/RightDrawer/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "CHASSIS MARKER3D SLOTS"
-
-[node name="SlotScroll" type="ScrollContainer" parent="UILayout/RightDrawer/VBox"]
-custom_minimum_size = Vector2(0, 185)
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="SlotListVBox" type="VBoxContainer" parent="UILayout/RightDrawer/VBox/SlotScroll"]
+[node name="TradeSummaryLabel" type="Label" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme_override_font_sizes/font_size = 14
+text = "8 Mounted  •  T/W 0.00  •  Δv 0 m/s"
+text_overrun_behavior = 3
 
-[node name="Sep1" type="HSeparator" parent="UILayout/RightDrawer/VBox"]
-layout_mode = 2
-
-[node name="TradeSummaryLabel" type="RichTextLabel" parent="UILayout/RightDrawer/VBox"]
+[node name="DesignCodeEdit" type="LineEdit" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 145)
-layout_mode = 2
-theme_override_font_sizes/normal_font_size = 11
-theme_override_font_sizes/bold_font_size = 12
-bbcode_enabled = true
-text = "Trade study initializing..."
-
-[node name="Sep2" type="HSeparator" parent="UILayout/RightDrawer/VBox"]
-layout_mode = 2
-
-[node name="DesignCodeRow" type="HBoxContainer" parent="UILayout/RightDrawer/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="DesignCodeEdit" type="LineEdit" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 10
-placeholder_text = "Design Base64 code..."
-
-[node name="BtnExportCode" type="Button" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "Copy"
-
-[node name="BtnImportCode" type="Button" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "Load"
-
-[node name="BtnProceedSim" type="Button" parent="UILayout/RightDrawer/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 36)
+custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
-text = "LAUNCH PHASE 3: LUNAR DESCENT ->"
+placeholder_text = "Design code..."
+
+[node name="BtnExportCode" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Copy"
+
+[node name="BtnImportCode" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Load"
+
+[node name="BtnProceedSim" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Launch Descent  ->"
