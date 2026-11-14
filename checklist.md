@@ -4,8 +4,8 @@
 - [x] Configurar `AGENTS.MD`, `.agents/rules/` e `.agents/skills/`
 - [x] Gerar `ephemeris_horizons.json`, `radiation_radlab.json` e `shackleton_terrain_meta.json`
 - [x] Criar `nasa_parts_catalog.json` inicial com 13 subsistemas e 3 presets
-- [ ] Completar `data/nasa_parts_catalog.json`: adicionar `launch_vehicles`, `orbits`, `data_rate_gb_day` nos payloads e módulo de Computador de Bordo/ADCS
-- [ ] Criar `lola_dem_to_heightmap16.py` e gerar `assets/terrain/shackleton_heightmap_16bit.png` (1024x1024) + texturas WebP de regolito (< 400 KB)
+- [x] Completar `data/nasa_parts_catalog.json`: adicionar `launch_vehicles`, `orbits`, `data_rate_gb_day` nos payloads e módulo de Computador de Bordo/ADCS
+- [x] Criar `lola_dem_to_heightmap16.py` e gerar `assets/terrain/shackleton_heightmap_16bit.png` (1024x1024) + texturas WebP de regolito (< 400 KB)
 - [ ] Alinhar pasta `scripts/` vs `content/` para auditoria no GitHub
 - [ ] Inicializar projeto Godot 4.3+ (`project.godot` com `rendering/renderer/rendering_method="gl_compatibility"`)
 - [ ] Configurar `export_presets.cfg` para WebGL Single-Threaded (`variant/thread_support=false`)
