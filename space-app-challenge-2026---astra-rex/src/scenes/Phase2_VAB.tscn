@@ -1,0 +1,276 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://src/scenes/Phase2_VAB.gd" id="1_vab"]
+[ext_resource type="PackedScene" path="res://src/scenes/LanderChassis.tscn" id="2_chassis"]
+[ext_resource type="PackedScene" path="res://assets/models/vab_gantry.glb" id="3_gantry"]
+[ext_resource type="PackedScene" path="res://assets/models/sls_block1.glb" id="4_sls"]
+[ext_resource type="PackedScene" path="res://assets/models/dsn_70m_dish.glb" id="5_dsn"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_vab"]
+sky_top_color = Color(0.035, 0.055, 0.095, 1)
+sky_horizon_color = Color(0.075, 0.11, 0.175, 1)
+ground_bottom_color = Color(0.025, 0.035, 0.055, 1)
+ground_horizon_color = Color(0.06, 0.085, 0.13, 1)
+
+[sub_resource type="Sky" id="Sky_vab"]
+sky_material = SubResource("ProceduralSkyMaterial_vab")
+
+[sub_resource type="Environment" id="Environment_vab"]
+background_mode = 2
+sky = SubResource("Sky_vab")
+ambient_light_source = 2
+ambient_light_color = Color(0.32, 0.40, 0.52, 1)
+ambient_light_energy = 0.65
+tonemap_mode = 2
+
+[sub_resource type="Shader" id="Shader_vab_grid"]
+code = "shader_type spatial;
+render_mode cull_back, specular_schlick_ggx;
+
+uniform vec4 base_color : source_color = vec4(0.045, 0.062, 0.095, 1.0);
+uniform vec4 grid_color : source_color = vec4(0.16, 0.42, 0.65, 1.0);
+uniform float grid_scale = 40.0;
+
+void fragment() {
+	vec2 uv_scaled = UV * grid_scale;
+	vec2 f = abs(fract(uv_scaled - 0.5) - 0.5);
+	float line = 1.0 - smoothstep(0.015, 0.04, min(f.x, f.y));
+	float radial = 1.0 - smoothstep(0.25, 0.5, length(UV - vec2(0.5)));
+	ALBEDO = mix(base_color.rgb, grid_color.rgb, line * radial * 0.75);
+	ROUGHNESS = 0.75;
+	METALLIC = 0.25;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vab_grid"]
+render_priority = 0
+shader = SubResource("Shader_vab_grid")
+shader_parameter/base_color = Color(0.045, 0.062, 0.095, 1)
+shader_parameter/grid_color = Color(0.16, 0.42, 0.65, 1)
+shader_parameter/grid_scale = 40.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+material = SubResource("ShaderMaterial_vab_grid")
+size = Vector2(44, 44)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pad"]
+top_radius = 2.1
+bottom_radius = 2.3
+height = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pad"]
+albedo_color = Color(0.16, 0.2, 0.27, 1)
+metallic = 0.65
+roughness = 0.45
+
+[node name="Phase2_VAB" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_vab")
+
+[node name="VABWorld" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="VABWorld"]
+environment = SubResource("Environment_vab")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="VABWorld"]
+transform = Transform3D(0.766044, -0.454519, 0.454519, 0, 0.707107, 0.707107, -0.642788, -0.541675, 0.541675, 6, 10, 6)
+light_color = Color(1, 0.98, 0.94, 1)
+light_energy = 1.45
+shadow_enabled = true
+
+[node name="FillLight" type="DirectionalLight3D" parent="VABWorld"]
+transform = Transform3D(-0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, 0.433013, -0.75, -6, 6, -4)
+light_color = Color(0.65, 0.82, 1, 1)
+light_energy = 0.65
+
+[node name="RimLight" type="OmniLight3D" parent="VABWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 3.5, -3.5)
+light_color = Color(0.35, 0.72, 1, 1)
+light_energy = 1.8
+omni_range = 10.0
+
+[node name="GridFloor" type="MeshInstance3D" parent="VABWorld"]
+mesh = SubResource("PlaneMesh_floor")
+
+[node name="AssemblyPedestal" type="MeshInstance3D" parent="VABWorld"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+mesh = SubResource("CylinderMesh_pad")
+surface_material_override/0 = SubResource("StandardMaterial3D_pad")
+
+[node name="LanderChassis" parent="VABWorld" instance=ExtResource("2_chassis")]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+
+[node name="VABGantry" parent="VABWorld" instance=ExtResource("3_gantry")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 0, -7)
+
+[node name="SLSBlock1Ref" parent="VABWorld" instance=ExtResource("4_sls")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0, -11.5)
+
+[node name="DSNDishRef" parent="VABWorld" instance=ExtResource("5_dsn")]
+transform = Transform3D(0.45, 0, 0, 0, 0.45, 0, 0, 0, 0.45, -12, 0, -12)
+
+[node name="CameraPivot" type="Node3D" parent="VABWorld"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="VABCamera" type="Camera3D" parent="VABWorld/CameraPivot"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5.8)
+fov = 48.0
+far = 200.0
+
+[node name="UILayout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = -10.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LeftDrawer" type="PanelContainer" parent="UILayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(335, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="UILayout/LeftDrawer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="UILayout/LeftDrawer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "SUBSYSTEM CATALOG (SP-2016-6105)"
+
+[node name="CategoryTabs" type="GridContainer" parent="UILayout/LeftDrawer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 4
+
+[node name="CatalogScroll" type="ScrollContainer" parent="UILayout/LeftDrawer/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CatalogVBox" type="VBoxContainer" parent="UILayout/LeftDrawer/VBox/CatalogScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="CenterViewportArea" type="VBoxContainer" parent="UILayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="CameraBar" type="HBoxContainer" parent="UILayout/CenterViewportArea"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="HintLabel" type="Label" parent="UILayout/CenterViewportArea/CameraBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Drag: Orbit 3D | Scroll: Zoom"
+
+[node name="BtnResetCam" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Reset Cam"
+
+[node name="BtnTurntable" type="Button" parent="UILayout/CenterViewportArea/CameraBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "Auto-Turntable"
+
+[node name="ViewportInputCatcher" type="Control" parent="UILayout/CenterViewportArea"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_default_cursor_shape = 2
+
+[node name="RightDrawer" type="PanelContainer" parent="UILayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="UILayout/RightDrawer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SlotTitle" type="Label" parent="UILayout/RightDrawer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "CHASSIS MARKER3D SLOTS"
+
+[node name="SlotScroll" type="ScrollContainer" parent="UILayout/RightDrawer/VBox"]
+custom_minimum_size = Vector2(0, 185)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SlotListVBox" type="VBoxContainer" parent="UILayout/RightDrawer/VBox/SlotScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Sep1" type="HSeparator" parent="UILayout/RightDrawer/VBox"]
+layout_mode = 2
+
+[node name="TradeSummaryLabel" type="RichTextLabel" parent="UILayout/RightDrawer/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 145)
+layout_mode = 2
+theme_override_font_sizes/normal_font_size = 11
+theme_override_font_sizes/bold_font_size = 12
+bbcode_enabled = true
+text = "Trade study initializing..."
+
+[node name="Sep2" type="HSeparator" parent="UILayout/RightDrawer/VBox"]
+layout_mode = 2
+
+[node name="DesignCodeRow" type="HBoxContainer" parent="UILayout/RightDrawer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DesignCodeEdit" type="LineEdit" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+placeholder_text = "Design Base64 code..."
+
+[node name="BtnExportCode" type="Button" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Copy"
+
+[node name="BtnImportCode" type="Button" parent="UILayout/RightDrawer/VBox/DesignCodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Load"
+
+[node name="BtnProceedSim" type="Button" parent="UILayout/RightDrawer/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "LAUNCH PHASE 3: LUNAR DESCENT ->"

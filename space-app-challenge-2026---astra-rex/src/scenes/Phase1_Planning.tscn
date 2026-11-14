@@ -1,0 +1,173 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/scenes/Phase1_Planning.gd" id="1_phase1"]
+
+[node name="Phase1_Planning" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_phase1")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.035, 0.048, 0.078, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="MainColumns" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LeftColumnPanel" type="PanelContainer" parent="Margin/MainColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/MainColumns/LeftColumnPanel"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Margin/MainColumns/LeftColumnPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="HeaderObj" type="Label" parent="Margin/MainColumns/LeftColumnPanel/Scroll/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "1. SCIENTIFIC OBJECTIVE (SHACKLETON CRATER)"
+
+[node name="ObjectiveList" type="VBoxContainer" parent="Margin/MainColumns/LeftColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Sep" type="HSeparator" parent="Margin/MainColumns/LeftColumnPanel/Scroll/VBox"]
+layout_mode = 2
+
+[node name="HeaderZone" type="Label" parent="Margin/MainColumns/LeftColumnPanel/Scroll/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "2. TARGET LANDING SITE (LRO LOLA DEM)"
+
+[node name="ZoneList" type="VBoxContainer" parent="Margin/MainColumns/LeftColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MidColumnPanel" type="PanelContainer" parent="Margin/MainColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/MainColumns/MidColumnPanel"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Margin/MainColumns/MidColumnPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="HeaderTeam" type="Label" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "3. ASYMMETRIC TEAM ROLES (1-4 PLAYERS)"
+
+[node name="TeamSizeRow" type="HBoxContainer" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RoleList" type="VBoxContainer" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RolePriorityLabel" type="Label" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
+text = "Active Role: Mission Planner"
+
+[node name="Sep2" type="HSeparator" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+layout_mode = 2
+
+[node name="HeaderOrbit" type="Label" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "4. OPERATIONAL LUNAR ORBIT"
+
+[node name="OrbitList" type="VBoxContainer" parent="Margin/MainColumns/MidColumnPanel/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RightColumnPanel" type="PanelContainer" parent="Margin/MainColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="Margin/MainColumns/RightColumnPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderLV" type="Label" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "5. LAUNCH VEHICLE (CLPS / ARTEMIS)"
+
+[node name="LaunchVehicleList" type="VBoxContainer" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Sep3" type="HSeparator" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+layout_mode = 2
+
+[node name="HeaderCheck" type="Label" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "6. LIVE LAUNCHVEHICLECHECK DIAGNOSTICS"
+
+[node name="CheckStatusBanner" type="Label" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "LaunchVehicleCheck: PASS"
+
+[node name="CheckMetricsGrid" type="GridContainer" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="CheckReasonsLabel" type="RichTextLabel" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 11
+text = "Waiting for telemetry..."
+
+[node name="BtnProceedVAB" type="Button" parent="Margin/MainColumns/RightColumnPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "PROCEED TO PHASE 2: 3D VAB ASSEMBLY ->"

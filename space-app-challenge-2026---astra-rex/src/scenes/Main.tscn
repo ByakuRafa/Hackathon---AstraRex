@@ -1,0 +1,152 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://src/scenes/Main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://src/scenes/MainHUD.tscn" id="2_hud"]
+[ext_resource type="PackedScene" path="res://src/scenes/Phase1_Planning.tscn" id="3_p1"]
+[ext_resource type="PackedScene" path="res://src/scenes/Phase2_VAB.tscn" id="4_p2"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="MainVBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="MainHUD" parent="MainVBox" instance=ExtResource("2_hud")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PhaseContainer" type="Control" parent="MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="Phase1_Planning" parent="MainVBox/PhaseContainer" instance=ExtResource("3_p1")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="Phase2_VAB" parent="MainVBox/PhaseContainer" instance=ExtResource("4_p2")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="Phase3_Placeholder" type="Control" parent="MainVBox/PhaseContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BG" type="ColorRect" parent="MainVBox/PhaseContainer/Phase3_Placeholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.04, 0.07, 1)
+
+[node name="CenterBox" type="VBoxContainer" parent="MainVBox/PhaseContainer/Phase3_Placeholder"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -90.0
+offset_right = 320.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="MainVBox/PhaseContainer/Phase3_Placeholder/CenterBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "PHASE 3: SHACKLETON CRATER DESCENT SIM (STAGE 3B)"
+
+[node name="Phase3StatusLabel" type="Label" parent="MainVBox/PhaseContainer/Phase3_Placeholder/CenterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Ready for Stage 3B LRO LOLA DEM terrain & JPL Horizons DE441 ephemeris integration."
+
+[node name="BtnP3BackVAB" type="Button" parent="MainVBox/PhaseContainer/Phase3_Placeholder/CenterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "<- Return to Phase 2: 3D VAB"
+
+[node name="Phase4_Placeholder" type="Control" parent="MainVBox/PhaseContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BG" type="ColorRect" parent="MainVBox/PhaseContainer/Phase4_Placeholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.04, 0.07, 1)
+
+[node name="CenterBox" type="VBoxContainer" parent="MainVBox/PhaseContainer/Phase4_Placeholder"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -90.0
+offset_right = 320.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="MainVBox/PhaseContainer/Phase4_Placeholder/CenterBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "PHASE 4: PARETO FRONTIER DEBRIEF (STAGE 3B)"
+
+[node name="Phase4StatusLabel" type="Label" parent="MainVBox/PhaseContainer/Phase4_Placeholder/CenterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Ready for Stage 3B Pareto Frontier chart & root-cause debrief."
+
+[node name="BtnP4BackVAB" type="Button" parent="MainVBox/PhaseContainer/Phase4_Placeholder/CenterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "<- Return to Phase 2: 3D VAB"

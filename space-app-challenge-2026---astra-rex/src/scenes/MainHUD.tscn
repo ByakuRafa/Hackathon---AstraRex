@@ -1,0 +1,263 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/scenes/MainHUD.gd" id="1_mainhud"]
+
+[node name="MainHUD" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 108)
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 108.0
+grow_horizontal = 2
+script = ExtResource("1_mainhud")
+
+[node name="RootVBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="TopControlRow" type="HBoxContainer" parent="RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BrandLabel" type="Label" parent="RootVBox/TopControlRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "ASTRA-REX // CLPS"
+
+[node name="StatusBadgeLabel" type="Label" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "STATUS: NOMINAL"
+
+[node name="Sep1" type="VSeparator" parent="RootVBox/TopControlRow"]
+layout_mode = 2
+
+[node name="PresetsLabel" type="Label" parent="RootVBox/TopControlRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "JUDGES:"
+
+[node name="BtnPreset1" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "P1: Artemis"
+
+[node name="BtnPreset2" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "P2: Failure"
+
+[node name="BtnPreset3" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "P3: Sandbox"
+
+[node name="Sep2" type="VSeparator" parent="RootVBox/TopControlRow"]
+layout_mode = 2
+
+[node name="BtnModeToggle" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "STUDENT MODE"
+
+[node name="Spacer" type="Control" parent="RootVBox/TopControlRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnPhase1" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "1. Formulation"
+
+[node name="BtnPhase2" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "2. 3D VAB"
+
+[node name="BtnPhase3" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "3. Descent Sim"
+
+[node name="BtnPhase4" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "4. Pareto Debrief"
+
+[node name="TelemetryRow" type="HBoxContainer" parent="RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="CardMass" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardMass"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "MASS (m0 / TLI & MGA)"
+
+[node name="MassValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "0 / 0 kg"
+
+[node name="MassSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardMass/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Dry 0 kg"
+
+[node name="CardPropulsion" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPropulsion"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "PROPULSION (Δv & T/W)"
+
+[node name="PropValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "0 m/s | T/W 0.00"
+
+[node name="PropSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "F 0 N | Isp 0 s"
+
+[node name="CardPower" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPower"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "NET POWER & BATTERY"
+
+[node name="PowerValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "+0 W"
+
+[node name="PowerSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardPower/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Batt 0 Wh"
+
+[node name="CardBudget" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardBudget"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "MISSION BUDGET (M$)"
+
+[node name="BudgetValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "$0M / $350M"
+
+[node name="BudgetSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "LV $0M | Sub $0M"
+
+[node name="CardComms" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardComms"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "DATA & DSN COMMS"
+
+[node name="CommsValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "0 / 0 GB/d"
+
+[node name="CommsSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardComms/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "0 Mbps | DTE 0%"
+
+[node name="CardRadiation" type="PanelContainer" parent="RootVBox/TelemetryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardRadiation"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Title" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "LIFETIME & RAD DOSE"
+
+[node name="RadValueLabel" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "0 d | 0 mSv"
+
+[node name="RadSubLabel" type="Label" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Shield 2.0 g/cm²"
