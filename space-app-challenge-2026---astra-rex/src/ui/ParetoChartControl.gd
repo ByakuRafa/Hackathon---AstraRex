@@ -12,18 +12,19 @@ enum XAxisMode {
 	WET_MASS_KG = 1
 }
 
-const COLOR_BG: Color = Color(0.039, 0.059, 0.110, 0.96)
-const COLOR_BORDER: Color = Color(0.20, 0.31, 0.48, 0.90)
-const COLOR_GRID: Color = Color(0.16, 0.24, 0.36, 0.55)
-const COLOR_AXIS_TEXT: Color = Color(0.72, 0.80, 0.90, 1.0)
-const COLOR_FEASIBLE_DOT: Color = Color(0.38, 0.54, 0.72, 0.48)
-const COLOR_INFEASIBLE_DOT: Color = Color(0.82, 0.28, 0.28, 0.28)
-const COLOR_PARETO_LINE: Color = Color(0.220, 0.741, 0.973, 0.95)
-const COLOR_PARETO_DOT: Color = Color(0.98, 0.80, 0.25, 1.0)
-const COLOR_NASA_REF: Color = Color(0.063, 0.725, 0.506, 1.0)
-const COLOR_PLAYER_OK: Color = Color(0.980, 0.749, 0.141, 1.0)
-const COLOR_PLAYER_FAIL: Color = Color(0.937, 0.267, 0.267, 1.0)
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)
+const COLOR_BG: Color = BrandStyle.SPACE_950
+const COLOR_BORDER: Color = BrandStyle.PANEL_BORDER
+const COLOR_GRID: Color = Color(0.165, 0.231, 0.333, 0.45)
+const COLOR_AXIS_TEXT: Color = BrandStyle.TEXT_MUTED
+const COLOR_FEASIBLE_DOT: Color = Color(0.184, 0.827, 1.0, 0.45)
+const COLOR_INFEASIBLE_DOT: Color = Color(1.0, 0.271, 0.376, 0.28)
+# Violet (#8B6CFF) strictly reserved for Pareto Frontier & active Next-Step Guide Pulse
+const COLOR_PARETO_LINE: Color = BrandStyle.GUIDE_VIOLET
+const COLOR_PARETO_DOT: Color = BrandStyle.NEON_YELLOW
+const COLOR_NASA_REF: Color = BrandStyle.PASS_EMERALD
+const COLOR_PLAYER_OK: Color = BrandStyle.NOMINAL_CYAN
+const COLOR_PLAYER_FAIL: Color = BrandStyle.CRITICAL_RED
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
 
 var x_axis_mode: XAxisMode = XAxisMode.COST_MUSD
 var all_candidates: Array[Dictionary] = []
@@ -36,7 +37,6 @@ var _min_x: float = 40.0
 var _max_x: float = 200.0
 var _min_y: float = 0.0
 var _max_y: float = 150.0
-var _pulse_phase: float = 0.0
 
 
 func _ready() -> void:
@@ -44,12 +44,9 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(420.0, 320.0)
 
 
-func _process(delta: float) -> void:
-	if not is_visible_in_tree():
-		return
-	if not player_point.is_empty():
-		_pulse_phase += delta * 3.5
-		queue_redraw()
+func _process(_delta: float) -> void:
+	# Keep Pareto reticle crisp and static so Main.gd owns the single guidance pulse on screen
+	pass
 
 
 func set_chart_data(
@@ -143,11 +140,12 @@ func _to_screen(val_x: float, val_y: float, plot_rect: Rect2) -> Vector2:
 
 func _draw() -> void:
 	var plot_rect: Rect2 = _get_plot_rect()
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = BrandStyle.get_ui_font()
+	var mono_font: Font = BrandStyle.get_mono_font()
 
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.027, 0.043, 0.082, 0.98), true)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.020, 0.031, 0.059, 0.96), true)
 	draw_rect(plot_rect, COLOR_BG, true)
-	_draw_grid_and_axes(plot_rect, font)
+	_draw_grid_and_axes(plot_rect, font, mono_font)
 	draw_rect(plot_rect, COLOR_BORDER, false, 1.5)
 
 	# 1. All candidate architectures (scatter)
@@ -195,13 +193,13 @@ func _draw() -> void:
 		var h_pos: Vector2 = _to_screen(_get_x_value(hovered_point), _get_y_value(hovered_point), plot_rect)
 		draw_arc(h_pos, 9.0, 0.0, TAU, 24, COLOR_WHITE, 1.5, true)
 
-	# 5. Current Mission Architecture (Pulsing Crosshair)
+	# 5. Current Mission Architecture (Crisp Static Crosshair — single pulse reserved for Main CTA)
 	if not player_point.is_empty():
 		var p_pos: Vector2 = _to_screen(_get_x_value(player_point), _get_y_value(player_point), plot_rect)
 		var is_nominal: bool = bool(player_point.get("feasible", false)) and MissionState.mission_failure_code == "NOMINAL"
 		var p_col: Color = COLOR_PLAYER_OK if is_nominal else COLOR_PLAYER_FAIL
-		var pulse_r: float = 11.0 + 4.0 * sin(_pulse_phase)
-		draw_arc(p_pos, pulse_r, 0.0, TAU, 28, Color(p_col.r, p_col.g, p_col.b, 0.65), 2.0, true)
+		draw_arc(p_pos, 15.0, 0.0, TAU, 28, Color(p_col.r, p_col.g, p_col.b, 0.35), 1.5, true)
+		draw_arc(p_pos, 10.5, 0.0, TAU, 28, Color(p_col.r, p_col.g, p_col.b, 0.85), 2.0, true)
 		draw_line(p_pos + Vector2(-13.0, 0.0), p_pos + Vector2(13.0, 0.0), p_col, 1.8)
 		draw_line(p_pos + Vector2(0.0, -13.0), p_pos + Vector2(0.0, 13.0), p_col, 1.8)
 		draw_circle(p_pos, 6.0, p_col)
@@ -212,7 +210,7 @@ func _draw() -> void:
 	_draw_legend(plot_rect, font)
 
 
-func _draw_grid_and_axes(plot_rect: Rect2, font: Font) -> void:
+func _draw_grid_and_axes(plot_rect: Rect2, font: Font, mono_font: Font) -> void:
 	var steps: int = 5
 	for i: int in range(steps + 1):
 		var t: float = float(i) / float(steps)
@@ -224,10 +222,10 @@ func _draw_grid_and_axes(plot_rect: Rect2, font: Font) -> void:
 
 		var x_val: float = lerpf(_min_x, _max_x, t)
 		var x_lbl: String = ("%.0f kg" % x_val) if x_axis_mode == XAxisMode.WET_MASS_KG else ("$%.0fM" % x_val)
-		draw_string(font, Vector2(x_px - 22.0, plot_rect.end.y + 16.0), x_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COLOR_AXIS_TEXT)
+		draw_string(mono_font, Vector2(x_px - 22.0, plot_rect.end.y + 16.0), x_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COLOR_AXIS_TEXT)
 
 		var y_val: float = lerpf(_min_y, _max_y, t)
-		draw_string(font, Vector2(8.0, y_px + 4.0), "%.0f" % y_val, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COLOR_AXIS_TEXT)
+		draw_string(mono_font, Vector2(8.0, y_px + 4.0), "%.0f" % y_val, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COLOR_AXIS_TEXT)
 
 	var x_title: String = "Total Wet Mass m0 (kg) -> Lower is Better" if x_axis_mode == XAxisMode.WET_MASS_KG else "Subsystems Cost (M$ USD) -> Lower is Better"
 	draw_string(font, Vector2(plot_rect.position.x + plot_rect.size.x * 0.25, size.y - 10.0), x_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COLOR_WHITE)

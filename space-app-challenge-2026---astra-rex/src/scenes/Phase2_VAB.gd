@@ -46,15 +46,16 @@ const PART_SHORT_NAMES: Dictionary = {
 	"shield_heavy": "Poly-Al Rad Shield"
 }
 
-const COLOR_DRAWER_BG: Color = Color(0.055, 0.082, 0.145, 0.94)
-const COLOR_CARD_NORMAL: Color = Color(0.086, 0.125, 0.204, 0.96)
-const COLOR_CARD_EQUIPPED: Color = Color(0.067, 0.220, 0.173, 0.96)
-const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)       # #10B981
-const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)     # #F59E0B
-const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)     # #EF4444
-const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)   # #38BDF8
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)          # #FFFFFF
-const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
+const COLOR_DRAWER_BG: Color = BrandStyle.PANEL_900                   # #0E1624 @ 88%
+const COLOR_CARD_NORMAL: Color = Color(0.055, 0.086, 0.141, 0.92)
+const COLOR_CARD_EQUIPPED: Color = Color(0.043, 0.239, 0.569, 0.48)  # #0B3D91 tint
+const COLOR_OK: Color = BrandStyle.PASS_EMERALD                     # #35E0A1
+const COLOR_WARN: Color = BrandStyle.CAUTION_AMBER                  # #FFB224
+const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED                   # #FF4560
+const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN                 # #2FD3FF
+const COLOR_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW             # #EAFE07
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
+const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var vab_world: Node3D = %VABWorld
 @onready var camera_pivot: Node3D = %CameraPivot
@@ -110,6 +111,10 @@ func _ready() -> void:
 	_enforce_double_sided_materials(vab_world)
 	_style_panels()
 	_style_cta_button()
+	BrandStyle.bind_mono_font(hover_delta_label)
+	BrandStyle.bind_mono_font(trade_summary_label)
+	btn_reset_cam.focus_mode = Control.FOCUS_NONE
+	btn_turntable.focus_mode = Control.FOCUS_NONE
 	_build_category_tabs()
 	_rebuild_catalog_list()
 	_connect_signals()
@@ -178,22 +183,14 @@ func set_vab_active(active: bool) -> void:
 
 
 func _style_panels() -> void:
-	for panel: PanelContainer in [left_drawer, bottom_bar]:
-		var style: StyleBoxFlat = StyleBoxFlat.new()
-		style.bg_color = COLOR_DRAWER_BG
-		style.border_color = Color(0.18, 0.29, 0.45, 0.90)
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(6)
-		style.content_margin_left = 12
-		style.content_margin_right = 12
-		style.content_margin_top = 10 if panel == left_drawer else 6
-		style.content_margin_bottom = 10 if panel == left_drawer else 6
-		panel.add_theme_stylebox_override("panel", style)
+	BrandStyle.apply_panel_style(left_drawer, 12.0, 10.0, 10.0)
+	BrandStyle.apply_panel_style(bottom_bar, 12.0, 6.0, 6.0)
 
 
 func _style_cta_button() -> void:
+	btn_proceed_sim.focus_mode = Control.FOCUS_NONE
 	var normal_sb: StyleBoxFlat = StyleBoxFlat.new()
-	normal_sb.bg_color = Color(0.06, 0.28, 0.44, 0.98)
+	normal_sb.bg_color = Color(0.043, 0.239, 0.569, 0.96)
 	normal_sb.border_color = COLOR_ACCENT
 	normal_sb.set_border_width_all(1)
 	normal_sb.set_corner_radius_all(5)
@@ -203,10 +200,12 @@ func _style_cta_button() -> void:
 	normal_sb.content_margin_bottom = 8
 
 	var hover_sb: StyleBoxFlat = normal_sb.duplicate() as StyleBoxFlat
-	hover_sb.bg_color = Color(0.08, 0.36, 0.56, 1.0)
+	hover_sb.bg_color = Color(0.0, 0.259, 0.651, 1.0)
+	hover_sb.border_color = COLOR_NEON_YELLOW
 	btn_proceed_sim.add_theme_stylebox_override("normal", normal_sb)
 	btn_proceed_sim.add_theme_stylebox_override("hover", hover_sb)
 	btn_proceed_sim.add_theme_color_override("font_color", COLOR_WHITE)
+	btn_proceed_sim.add_theme_color_override("font_hover_color", COLOR_NEON_YELLOW)
 
 
 func _connect_signals() -> void:
@@ -231,19 +230,28 @@ func _build_category_tabs() -> void:
 		var cat_label: String = str(cat_def.get("label", cat_id))
 		var btn: Button = Button.new()
 		btn.toggle_mode = true
+		btn.focus_mode = Control.FOCUS_NONE
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.text = cat_label
 		btn.add_theme_font_size_override("font_size", 11)
 		var tab_style: StyleBoxFlat = StyleBoxFlat.new()
 		tab_style.bg_color = COLOR_CARD_NORMAL
-		tab_style.border_color = Color(0.20, 0.31, 0.48, 0.85)
+		tab_style.border_color = BrandStyle.BTN_BORDER
 		tab_style.set_border_width_all(1)
 		tab_style.set_corner_radius_all(4)
 		tab_style.content_margin_left = 4
 		tab_style.content_margin_right = 4
 		tab_style.content_margin_top = 4
 		tab_style.content_margin_bottom = 4
+		var tab_hover: StyleBoxFlat = tab_style.duplicate() as StyleBoxFlat
+		tab_hover.border_color = COLOR_NEON_YELLOW
+		var tab_pressed: StyleBoxFlat = tab_style.duplicate() as StyleBoxFlat
+		tab_pressed.bg_color = Color(0.043, 0.239, 0.569, 0.92)
+		tab_pressed.border_color = COLOR_ACCENT
+		tab_pressed.border_width_bottom = 2
 		btn.add_theme_stylebox_override("normal", tab_style)
+		btn.add_theme_stylebox_override("hover", tab_hover)
+		btn.add_theme_stylebox_override("pressed", tab_pressed)
 		btn.pressed.connect(_on_category_selected.bind(cat_id))
 		category_tabs.add_child(btn)
 		_category_buttons[cat_id] = btn
@@ -251,6 +259,7 @@ func _build_category_tabs() -> void:
 
 
 func _on_category_selected(cat_id: String) -> void:
+	_play_vab_sfx("ui_hover_tick")
 	_active_category = cat_id
 	_sync_category_tab_buttons()
 	_sync_diegetic_pin_styles()
@@ -297,9 +306,11 @@ func _create_part_card_button(part_data: Dictionary, snap: Dictionary) -> Button
 	var part_id: String = str(part_data.get("id", ""))
 	var btn: Button = Button.new()
 	btn.toggle_mode = true
+	btn.focus_mode = Control.FOCUS_NONE
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	btn.custom_minimum_size = Vector2(0, 50)
 	btn.add_theme_font_size_override("font_size", 12)
+	BrandStyle.bind_mono_font(btn)
 	btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	btn.tooltip_text = _build_part_tooltip(part_data)
 	_update_part_card_text(btn, part_data, snap)
@@ -442,6 +453,8 @@ func _format_compact_delta_badge(deltas: Dictionary) -> String:
 
 
 func _on_part_hovered(part_id: String) -> void:
+	if _hovered_part_id != part_id and visible:
+		_play_vab_sfx("ui_hover_tick")
 	_hovered_part_id = part_id
 	if not is_instance_valid(hover_delta_label):
 		return
@@ -464,7 +477,8 @@ func _on_part_hovered(part_id: String) -> void:
 	hover_delta_label.text = "[%s %s] Mass %+.1f kg | Δv %+.0f m/s | Pwr %+.0f W | Cost %s$%.1fM" % [
 		action, short_name, d_mass, d_dv, d_pwr, cost_sign, absf(d_cost)
 	]
-	var col: Color = COLOR_WARN if action == "REMOVE" else (COLOR_ACCENT if d_dv >= 0.0 and d_pwr >= 0.0 else COLOR_WHITE)
+	var is_caution: bool = (action == "REMOVE") or (d_dv < -50.0) or (d_pwr < -20.0) or (d_mass > 50.0)
+	var col: Color = COLOR_WARN if is_caution else COLOR_ACCENT
 	hover_delta_label.add_theme_color_override("font_color", col)
 
 
@@ -482,16 +496,19 @@ func _build_diegetic_pins() -> void:
 		var marker_node: Marker3D = lander_chassis.find_child(marker_name, true, false) as Marker3D
 
 		var pin_btn: Button = Button.new()
+		pin_btn.focus_mode = Control.FOCUS_NONE
 		pin_btn.text = pin_label
 		pin_btn.custom_minimum_size = Vector2(54, 22)
 		pin_btn.size = Vector2(54, 22)
 		pin_btn.add_theme_font_size_override("font_size", 11)
+		BrandStyle.bind_mono_font(pin_btn)
 		pin_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		pin_btn.tooltip_text = "Click to filter catalog to %s\nMount: %s" % [
 			str(CATEGORY_TITLES.get(cat_id, cat_id)),
 			marker_name
 		]
 		pin_btn.pressed.connect(_on_category_selected.bind(cat_id))
+		pin_btn.mouse_entered.connect(func() -> void: _play_vab_sfx("ui_hover_tick"))
 		diegetic_pin_overlay.add_child(pin_btn)
 		_diegetic_pins.append({
 			"button": pin_btn,
@@ -510,16 +527,19 @@ func _sync_diegetic_pin_styles() -> void:
 		var cat_id: String = str(pin_rec["cat"])
 		var is_selected: bool = (_active_category == cat_id)
 		var sb: StyleBoxFlat = StyleBoxFlat.new()
-		sb.bg_color = Color(0.05, 0.25, 0.36, 0.92) if is_selected else Color(0.06, 0.09, 0.14, 0.86)
-		sb.border_color = Color(0.0, 0.941, 1.0, 1.0) if is_selected else Color(0.28, 0.45, 0.65, 0.85)
+		sb.bg_color = Color(0.043, 0.239, 0.569, 0.92) if is_selected else BrandStyle.PANEL_900
+		sb.border_color = COLOR_NEON_YELLOW if is_selected else BrandStyle.BTN_BORDER
 		sb.set_border_width_all(2 if is_selected else 1)
 		sb.set_corner_radius_all(10)
 		sb.content_margin_left = 6
 		sb.content_margin_right = 6
 		sb.content_margin_top = 2
 		sb.content_margin_bottom = 2
+		var sb_hover: StyleBoxFlat = sb.duplicate() as StyleBoxFlat
+		sb_hover.border_color = COLOR_NEON_YELLOW
 		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_color_override("font_color", COLOR_ACCENT if is_selected else COLOR_WHITE)
+		btn.add_theme_stylebox_override("hover", sb_hover)
+		btn.add_theme_color_override("font_color", COLOR_NEON_YELLOW if is_selected else COLOR_ACCENT)
 
 
 func _update_diegetic_pins() -> void:
@@ -621,10 +641,19 @@ func _build_part_tooltip(part_data: Dictionary) -> String:
 
 func _on_part_card_pressed(part_id: String) -> void:
 	_on_part_hovered(part_id)
+	_play_vab_sfx("vab_snap")
 	if part_id == "chassis_clps":
 		_refresh_equipped_states(MissionState.get_telemetry_snapshot())
 		return
 	MissionState.toggle_subsystem(part_id)
+
+
+func _play_vab_sfx(sfx_name: String) -> void:
+	if not is_inside_tree():
+		return
+	var shell: Node = get_tree().get_first_node_in_group("main_shell")
+	if is_instance_valid(shell) and shell.has_method("play_sfx"):
+		shell.call("play_sfx", sfx_name)
 
 
 func _on_state_updated(snap: Dictionary) -> void:
@@ -665,7 +694,7 @@ func _refresh_equipped_states(snap: Dictionary) -> void:
 func _apply_part_btn_style(btn: Button, equipped: bool) -> void:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = COLOR_CARD_EQUIPPED if equipped else COLOR_CARD_NORMAL
-	style.border_color = COLOR_OK if equipped else Color(0.20, 0.31, 0.48, 0.85)
+	style.border_color = COLOR_OK if equipped else BrandStyle.BTN_BORDER
 	style.set_border_width_all(1)
 	if equipped:
 		style.border_width_left = 4
@@ -674,8 +703,11 @@ func _apply_part_btn_style(btn: Button, equipped: bool) -> void:
 	style.content_margin_right = 10
 	style.content_margin_top = 6
 	style.content_margin_bottom = 6
+	var hover_sb: StyleBoxFlat = style.duplicate() as StyleBoxFlat
+	hover_sb.border_color = COLOR_NEON_YELLOW
 	btn.add_theme_stylebox_override("normal", style)
 	btn.add_theme_stylebox_override("pressed", style)
+	btn.add_theme_stylebox_override("hover", hover_sb)
 
 
 func _update_trade_summary(snap: Dictionary) -> void:
@@ -693,15 +725,16 @@ func _update_trade_summary(snap: Dictionary) -> void:
 	var life_d: float = float(snap.get("mission_lifetime_days", 0.0))
 	var fail_code: String = str(snap.get("failure_code", "NOMINAL"))
 
+	var status_sym: String = "✔" if fail_code == "NOMINAL" else ("⚠" if fail_code == "DSN_DOWNLINK_BOTTLENECK" else "✖")
 	var status_color: Color = COLOR_OK if fail_code == "NOMINAL" else (COLOR_WARN if fail_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT)
 	if eng:
-		trade_summary_label.text = "%d Mounted  •  T/W %.2f  •  Δv %.0f/%.0f m/s  •  m0 %.0f kg  •  %s" % [
-			_latest_slots.size(), tw, dv, req_dv, m0_wet, fail_code
+		trade_summary_label.text = "%s %d Mounted  •  T/W %.2f  •  Δv %.0f/%.0f m/s  •  m0 %.0f kg  •  %s" % [
+			status_sym, _latest_slots.size(), tw, dv, req_dv, m0_wet, fail_code
 		]
 	else:
 		var student_tag: String = "SAFE LANDING T/W" if tw >= 1.0 else "THRUST DEFICIT"
-		trade_summary_label.text = "%d Mounted  •  %s  •  Δv %.0f m/s  •  %+.0f W" % [
-			_latest_slots.size(), student_tag, dv, net_p
+		trade_summary_label.text = "%s %d Mounted  •  %s  •  Δv %.0f m/s  •  %+.0f W" % [
+			status_sym, _latest_slots.size(), student_tag, dv, net_p
 		]
 	trade_summary_label.add_theme_color_override("font_color", status_color)
 

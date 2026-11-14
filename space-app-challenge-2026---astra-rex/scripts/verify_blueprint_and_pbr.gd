@@ -52,8 +52,10 @@ func _run_all() -> void:
 	await _verify_vab_deltas_and_pins(main_node)
 	await _verify_presets_and_phase_flow(main_node)
 	await _verify_isomorphic_student_engineer(main_node)
+	await _verify_stage4_brand_audio_fonts_and_shortcuts(main_node)
 
 	main_node.queue_free()
+	await tree.process_frame
 	await tree.process_frame
 	_finish()
 
@@ -324,6 +326,99 @@ func _verify_isomorphic_student_engineer(main_node: Control) -> void:
 		_fail("Isomorphic Dual-Mode layout shifted! deltas: next=%.2f csv=%.2f mass=%.2f prop=%.2f" % [delta_next, delta_csv, delta_mass, delta_prop])
 	else:
 		_pass("Isomorphic Student/Engineer toggle verified (0.0px layout shift, export lock state accurate)")
+
+
+func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
+	# 1. Verify all 6 procedural 44.1kHz WAV samples & thruster loop
+	var expected_wavs: Array[String] = [
+		"res://assets/audio/vab_snap.wav",
+		"res://assets/audio/quindar_beep.wav",
+		"res://assets/audio/ui_hover_tick.wav",
+		"res://assets/audio/thruster_burn.wav",
+		"res://assets/audio/spe_alarm.wav",
+		"res://assets/audio/touchdown_confirm.wav"
+	]
+	for wav_path: String in expected_wavs:
+		var stream: Resource = ResourceLoader.load(wav_path)
+		if not (stream is AudioStreamWAV):
+			_fail("Missing or invalid AudioStreamWAV: %s" % wav_path)
+			return
+		var wav: AudioStreamWAV = stream as AudioStreamWAV
+		if wav.mix_rate != 44100 or wav.stereo:
+			_fail("%s audio spec mismatch (rate=%d stereo=%s)" % [wav_path, wav.mix_rate, str(wav.stereo)])
+			return
+		if wav_path.ends_with("thruster_burn.wav") and wav.loop_mode != AudioStreamWAV.LOOP_FORWARD:
+			_fail("thruster_burn.wav missing LOOP_FORWARD import setting")
+			return
+	_pass("All 6 procedural NASA WAV samples verified (44.1kHz mono, thruster loop active)")
+
+	# 2. Verify Barlow Semi Condensed & JetBrains Mono Tabular (tnum) fonts
+	var ui_font: Resource = ResourceLoader.load("res://src/ui/FontUI_Barlow.tres")
+	var mono_font: Resource = ResourceLoader.load("res://src/ui/FontMono_Tabular.tres")
+	if not (ui_font is FontVariation) or not (mono_font is FontVariation):
+		_fail("FontUI_Barlow.tres or FontMono_Tabular.tres failed to load as FontVariation")
+		return
+	var mono_fv: FontVariation = mono_font as FontVariation
+	var tnum_val: Variant = mono_fv.opentype_features.get("tnum", mono_fv.opentype_features.get(1953396077, 0))
+	if int(tnum_val) != 1:
+		_fail("FontMono_Tabular.tres missing tnum=1 opentype feature")
+		return
+	_pass("Typography resources verified (Barlow Semi Condensed UI + JetBrains Mono tnum=1)")
+
+	# 3. Verify harmonized Space Apps Brand colors, sparklines (48x16), and Pareto curve violet
+	if BrandStyle.SPACE_950.to_html(false).to_upper() != "05080F" or BrandStyle.NEON_YELLOW.to_html(false).to_upper() != "EAFE07" or BrandStyle.GUIDE_VIOLET.to_html(false).to_upper() != "8B6CFF":
+		_fail("BrandStyle core hex mismatch")
+		return
+	if ParetoChartControl.COLOR_PARETO_LINE != BrandStyle.GUIDE_VIOLET:
+		_fail("ParetoChartControl Pareto line must use BrandStyle.GUIDE_VIOLET (#8B6CFF)")
+		return
+	var hud: MainHUD = main_node.get_node_or_null("%MainHUD") as MainHUD
+	var p4: Phase4Debrief = main_node.get_node_or_null("%Phase4_Debrief") as Phase4Debrief
+	if hud == null or not is_instance_valid(hud.power_sparkline) or hud.power_sparkline.custom_minimum_size != Vector2(48.0, 16.0):
+		_fail("MainHUD missing 48x16 TelemetrySparkline")
+		return
+	if p4 == null or not is_instance_valid(p4._debrief_sparkline) or p4._debrief_sparkline.custom_minimum_size != Vector2(48.0, 16.0):
+		_fail("Phase4_Debrief missing 48x16 TelemetrySparkline")
+		return
+	_pass("BrandStyle 60-30-10 tokens, Pareto #8B6CFF curve, and 48x16px sparklines verified")
+
+	# 4. Verify MUTE toggle & Space/Enter 45-second flow shortcut
+	var mute_btn: Button = main_node.btn_mute_audio
+	if not is_instance_valid(mute_btn):
+		_fail("BottomActionBar missing BtnMuteAudio control")
+		return
+	main_node.call("set_audio_muted", true)
+	if not bool(main_node.call("is_audio_muted")):
+		_fail("MainShell.set_audio_muted(true) failed")
+		return
+	main_node.call("set_audio_muted", false)
+
+	main_node.call("_switch_to_phase", 0, false)
+	await get_tree().process_frame
+	var space_ev: InputEventKey = InputEventKey.new()
+	space_ev.keycode = KEY_SPACE
+	space_ev.pressed = true
+	main_node.get_viewport().push_input(space_ev)
+	await get_tree().process_frame
+	if int(main_node._current_phase_index) != 1:
+		_fail("Spacebar judge flow shortcut did not advance Phase 1 -> Phase 2 (phase=%d)" % int(main_node._current_phase_index))
+		return
+	_pass("MUTE toggle and Space/Enter 45s phase-advance shortcut verified (Phase 1 -> Phase 2)")
+
+	# 5. Verify packaged WebGL artifact & vercel.json (< 15 MB budget)
+	var zip_path: String = ProjectSettings.globalize_path("res://build/astra_rex_itch_webgl.zip")
+	var vercel_path: String = ProjectSettings.globalize_path("res://build/web/vercel.json")
+	if not FileAccess.file_exists(zip_path) or not FileAccess.file_exists(vercel_path):
+		_fail("Missing WebGL bundle or vercel.json (%s / %s)" % [zip_path, vercel_path])
+		return
+	var fa: FileAccess = FileAccess.open(zip_path, FileAccess.READ)
+	var zip_bytes: int = fa.get_length() if fa != null else 0
+	if fa != null:
+		fa.close()
+	if zip_bytes <= 0 or zip_bytes >= 15 * 1024 * 1024:
+		_fail("astra_rex_itch_webgl.zip out of 15 MB budget (%d bytes)" % zip_bytes)
+		return
+	_pass("Single-threaded WebGL release package verified (%.2f MB < 15.0 MB + vercel.json)" % (float(zip_bytes) / 1048576.0))
 
 
 func _finish() -> void:

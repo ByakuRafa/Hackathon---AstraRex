@@ -1,24 +1,27 @@
 class_name MainHUD
 extends PanelContainer
 
-## Persistent NASA Mission Control Top HUD Bar (<= 88px height).
+## Persistent NASA Mission Control Top HUD Bar (<= 84px height).
 ## Hosts 1-Click Judge Presets, Student/Engineer Toggle, 4 Phase Tabs,
 ## and 6 Compact SI Resource Gauges with progressive-disclosure NASA citations in tooltips.
 
 signal phase_requested(phase_index: int)
 
-const COLOR_BG_BAR: Color = Color(0.043, 0.067, 0.125, 0.98)
-const COLOR_CARD_BG: Color = Color(0.075, 0.110, 0.184, 0.96)
-const COLOR_CARD_WARN_BG: Color = Color(0.180, 0.129, 0.043, 0.96)
-const COLOR_CARD_ERR_BG: Color = Color(0.200, 0.055, 0.071, 0.96)
+const COLOR_BG_BAR: Color = Color(0.055, 0.086, 0.141, 0.94)        # #0E1624
+const COLOR_CARD_BG: Color = BrandStyle.PANEL_900                   # #0E1624 @ 88%
+const COLOR_CARD_BORDER: Color = BrandStyle.PANEL_BORDER            # #2A3B55
+const COLOR_CARD_WARN_BG: Color = Color(0.180, 0.125, 0.040, 0.92)
+const COLOR_CARD_ERR_BG: Color = Color(0.200, 0.050, 0.075, 0.92)
 
-const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)       # #10B981
-const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)     # #F59E0B
-const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)     # #EF4444
-const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)   # #38BDF8
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)          # #FFFFFF
-const COLOR_HEADER: Color = Color(0.902, 0.945, 1.0, 1.0)     # #E6F1FF
-const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
+const COLOR_OK: Color = BrandStyle.PASS_EMERALD                     # #35E0A1
+const COLOR_WARN: Color = BrandStyle.CAUTION_AMBER                  # #FFB224
+const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED                   # #FF4560
+const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN                 # #2FD3FF
+const COLOR_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW             # #EAFE07
+const COLOR_BRAND_BLUE: Color = BrandStyle.BRAND_BLUE               # #0042A6
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
+const COLOR_HEADER: Color = BrandStyle.TEXT_HEADER
+const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var status_badge_label: Label = %StatusBadgeLabel
 @onready var btn_preset_1: Button = %BtnPreset1
@@ -58,6 +61,7 @@ const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
 var _active_phase_index: int = 0
 var _phase_buttons: Array[Button] = []
 var _preset_buttons: Array[Button] = []
+var power_sparkline: TelemetrySparkline = null
 
 
 func _ready() -> void:
@@ -66,6 +70,8 @@ func _ready() -> void:
 
 	_apply_bar_style()
 	_apply_compact_hud_buttons()
+	_bind_tabular_fonts()
+	_setup_power_sparkline()
 	_connect_ui_signals()
 	_connect_state_signals()
 
@@ -77,13 +83,39 @@ func _ready() -> void:
 func _apply_bar_style() -> void:
 	var bar_style: StyleBoxFlat = StyleBoxFlat.new()
 	bar_style.bg_color = COLOR_BG_BAR
-	bar_style.border_color = Color(0.18, 0.29, 0.45, 0.90)
+	bar_style.border_color = COLOR_BRAND_BLUE
 	bar_style.border_width_bottom = 2
-	bar_style.content_margin_left = 12
-	bar_style.content_margin_right = 12
-	bar_style.content_margin_top = 6
-	bar_style.content_margin_bottom = 6
+	bar_style.content_margin_left = 10.0
+	bar_style.content_margin_right = 10.0
+	bar_style.content_margin_top = 4.0
+	bar_style.content_margin_bottom = 4.0
 	add_theme_stylebox_override("panel", bar_style)
+
+
+func _bind_tabular_fonts() -> void:
+	var mono_labels: Array[Label] = [
+		status_badge_label,
+		mass_value_label, mass_sub_label,
+		prop_value_label, prop_sub_label,
+		power_value_label, power_sub_label,
+		budget_value_label, budget_sub_label,
+		comms_value_label, comms_sub_label,
+		rad_value_label, rad_sub_label,
+	]
+	for lbl: Label in mono_labels:
+		BrandStyle.bind_mono_font(lbl)
+
+
+func _setup_power_sparkline() -> void:
+	var header_row: HBoxContainer = card_power.get_node_or_null("VBox/HeaderRow") as HBoxContainer
+	if not is_instance_valid(header_row):
+		return
+	power_sparkline = TelemetrySparkline.new()
+	power_sparkline.name = "PowerSparkline"
+	power_sparkline.custom_minimum_size = Vector2(48.0, 16.0)
+	power_sparkline.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header_row.add_child(power_sparkline)
+	header_row.move_child(power_sparkline, 1)
 
 
 func _apply_compact_hud_buttons() -> void:
@@ -93,18 +125,19 @@ func _apply_compact_hud_buttons() -> void:
 	all_hud_btns.append_array(_phase_buttons)
 
 	for btn: Button in all_hud_btns:
+		btn.focus_mode = Control.FOCUS_NONE
 		var normal_sb: StyleBoxFlat = _make_hud_btn_style(
-			Color(0.086, 0.125, 0.204, 0.96),
-			Color(0.20, 0.31, 0.48, 0.85),
+			Color(0.055, 0.086, 0.141, 0.92),
+			BrandStyle.BTN_BORDER,
 			false
 		)
 		var hover_sb: StyleBoxFlat = _make_hud_btn_style(
-			Color(0.122, 0.180, 0.294, 0.98),
-			COLOR_ACCENT,
+			Color(0.082, 0.133, 0.224, 0.96),
+			COLOR_NEON_YELLOW,
 			false
 		)
 		var pressed_sb: StyleBoxFlat = _make_hud_btn_style(
-			Color(0.094, 0.212, 0.341, 0.98),
+			Color(0.043, 0.239, 0.569, 0.92),
 			COLOR_ACCENT,
 			true
 		)
@@ -112,6 +145,7 @@ func _apply_compact_hud_buttons() -> void:
 		btn.add_theme_stylebox_override("hover", hover_sb)
 		btn.add_theme_stylebox_override("pressed", pressed_sb)
 		btn.add_theme_stylebox_override("focus", hover_sb)
+		btn.add_theme_color_override("font_hover_color", COLOR_NEON_YELLOW)
 
 
 func _make_hud_btn_style(bg: Color, border: Color, active: bool) -> StyleBoxFlat:
@@ -122,10 +156,10 @@ func _make_hud_btn_style(bg: Color, border: Color, active: bool) -> StyleBoxFlat
 	if active:
 		sb.border_width_bottom = 2
 	sb.set_corner_radius_all(4)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 8.0
+	sb.content_margin_top = 2.0
+	sb.content_margin_bottom = 2.0
 	return sb
 
 
@@ -156,9 +190,23 @@ func set_active_phase(phase_index: int) -> void:
 		var is_active: bool = (idx == _active_phase_index)
 		btn.set_pressed_no_signal(is_active)
 		if is_active:
-			btn.add_theme_color_override("font_color", COLOR_HEADER)
+			var tab_active: StyleBoxFlat = _make_hud_btn_style(
+				Color(0.043, 0.239, 0.569, 0.94),
+				COLOR_NEON_YELLOW,
+				true
+			)
+			btn.add_theme_stylebox_override("pressed", tab_active)
+			btn.add_theme_color_override("font_color", COLOR_NEON_YELLOW)
+			btn.add_theme_color_override("font_pressed_color", COLOR_NEON_YELLOW)
 		else:
+			var tab_std: StyleBoxFlat = _make_hud_btn_style(
+				Color(0.055, 0.086, 0.141, 0.92),
+				BrandStyle.BTN_BORDER,
+				false
+			)
+			btn.add_theme_stylebox_override("normal", tab_std)
 			btn.remove_theme_color_override("font_color")
+			btn.remove_theme_color_override("font_pressed_color")
 
 
 func _on_phase_button_pressed(phase_index: int) -> void:
@@ -185,13 +233,14 @@ func _on_state_updated(snap: Dictionary) -> void:
 
 
 func _on_simulation_alert(alert_code: String, message: String, citation: String) -> void:
-	var pill_color: Color = COLOR_WARN if alert_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT
-	_apply_status_pill(alert_code, pill_color)
+	var is_warn: bool = alert_code == "DSN_DOWNLINK_BOTTLENECK"
+	var pill_color: Color = COLOR_WARN if is_warn else COLOR_CRIT
+	var prefix: String = "⚠ CAUTION" if is_warn else "✖ FAIL"
+	_apply_status_pill("%s • %s" % [prefix, _abbreviate_failure(alert_code)], pill_color)
 	status_badge_label.tooltip_text = "%s\n\n[NASA Reference]\n%s" % [message, citation]
 
 
 func _sync_controls_from_state() -> void:
-	_ensure_compact_hud_styles()
 	var eng: bool = MissionState.engineer_mode
 	if btn_mode_toggle.button_pressed != eng:
 		btn_mode_toggle.set_pressed_no_signal(eng)
@@ -211,36 +260,8 @@ func _sync_controls_from_state() -> void:
 		var p_btn: Button = _preset_buttons[idx]
 		var is_selected: bool = (idx + 1 == MissionState.current_preset_index)
 		p_btn.set_pressed_no_signal(is_selected)
-
-
-func _ensure_compact_hud_styles() -> void:
-	if has_meta("_compact_hud_applied"):
-		return
-	set_meta("_compact_hud_applied", true)
-	var base_panel: StyleBox = get_theme_stylebox("panel")
-	if base_panel is StyleBoxFlat:
-		var hud_sb: StyleBoxFlat = (base_panel as StyleBoxFlat).duplicate() as StyleBoxFlat
-		hud_sb.content_margin_left = 10.0
-		hud_sb.content_margin_right = 10.0
-		hud_sb.content_margin_top = 4.0
-		hud_sb.content_margin_bottom = 4.0
-		add_theme_stylebox_override("panel", hud_sb)
-	var top_buttons: Array[Button] = []
-	for b: Button in _preset_buttons:
-		top_buttons.append(b)
-	for b: Button in _phase_buttons:
-		top_buttons.append(b)
-	top_buttons.append(btn_mode_toggle)
-	for b: Button in top_buttons:
-		for state_name: String in ["normal", "hover", "pressed", "disabled", "focus"]:
-			var sb: StyleBox = b.get_theme_stylebox(state_name)
-			if sb is StyleBoxFlat:
-				var c_sb: StyleBoxFlat = (sb as StyleBoxFlat).duplicate() as StyleBoxFlat
-				c_sb.content_margin_top = 2.0
-				c_sb.content_margin_bottom = 2.0
-				c_sb.content_margin_left = 8.0
-				c_sb.content_margin_right = 8.0
-				b.add_theme_stylebox_override(state_name, c_sb)
+		if is_selected:
+			p_btn.add_theme_color_override("font_pressed_color", COLOR_ACCENT)
 
 
 func refresh_telemetry(snap: Dictionary) -> void:
@@ -267,7 +288,7 @@ func refresh_telemetry(snap: Dictionary) -> void:
 
 func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> void:
 	if failure_code == "NOMINAL":
-		var label_str: String = "NOMINAL" if eng else "PASS  •  READY"
+		var label_str: String = "✔ NOMINAL" if eng else "✔ PASS • READY"
 		_apply_status_pill(label_str, COLOR_OK)
 		status_badge_label.tooltip_text = (
 			"Mission Status: NOMINAL (PASS)\n"
@@ -276,10 +297,10 @@ func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> 
 			+ "[NASA Reference]\nNASA SP-2016-6105 Rev2 Systems Engineering Constraints"
 		)
 	elif failure_code == "DSN_DOWNLINK_BOTTLENECK":
-		_apply_status_pill("WARN  •  COMMS", COLOR_WARN)
+		_apply_status_pill("⚠ CAUTION • COMMS", COLOR_WARN)
 	else:
 		var short_code: String = _abbreviate_failure(failure_code)
-		_apply_status_pill("FAIL  •  %s" % short_code, COLOR_CRIT)
+		_apply_status_pill("✖ FAIL • %s" % short_code, COLOR_CRIT)
 
 
 func _abbreviate_failure(code: String) -> String:
@@ -298,6 +319,8 @@ func _abbreviate_failure(code: String) -> String:
 			return "RAD SEU"
 		"NO_PROPULSION_MODULE":
 			return "NO ENGINE"
+		"DSN_DOWNLINK_BOTTLENECK":
+			return "COMMS"
 	return code
 
 
@@ -305,14 +328,14 @@ func _apply_status_pill(text_val: String, pill_color: Color) -> void:
 	status_badge_label.text = text_val
 	status_badge_label.add_theme_color_override("font_color", COLOR_WHITE)
 	var pill: StyleBoxFlat = StyleBoxFlat.new()
-	pill.bg_color = Color(pill_color.r * 0.35, pill_color.g * 0.35, pill_color.b * 0.35, 0.95)
+	pill.bg_color = Color(pill_color.r * 0.28, pill_color.g * 0.28, pill_color.b * 0.28, 0.94)
 	pill.border_color = pill_color
 	pill.set_border_width_all(1)
 	pill.set_corner_radius_all(10)
-	pill.content_margin_left = 10
-	pill.content_margin_right = 10
-	pill.content_margin_top = 2
-	pill.content_margin_bottom = 2
+	pill.content_margin_left = 10.0
+	pill.content_margin_right = 10.0
+	pill.content_margin_top = 2.0
+	pill.content_margin_bottom = 2.0
 	status_badge_label.add_theme_stylebox_override("normal", pill)
 
 
@@ -334,11 +357,11 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		mass_sub_label.text = "Dry %.0f kg  •  +%.0f%% MGA" % [mf_dry, mga_pct]
 	else:
 		mass_value_label.text = "%.0f kg" % m0_wet
-		mass_sub_label.text = "%s  •  %.0f kg" % ["SAFE MARGIN" if mass_ok else "OVERLOAD", max_tli]
+		mass_sub_label.text = "%s  •  %.0f kg" % ["✔ MARGIN" if mass_ok else "✖ OVERLOAD", max_tli]
 
 	mass_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mass_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	mass_value_label.add_theme_color_override("font_color", COLOR_WHITE if mass_ok else COLOR_CRIT)
+	mass_value_label.add_theme_color_override("font_color", COLOR_ACCENT if mass_ok else COLOR_CRIT)
 	_apply_card_style(card_mass, border_col, bg_col)
 
 	var citation: String = str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
@@ -369,11 +392,11 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 
 	if not tw_ok:
 		prop_value_label.text = "T/W %.2f (<1)" % tw
-		prop_sub_label.text = ("LOCKOUT  •  %.0f m/s" % dv) if eng else "THRUST DEFICIT"
+		prop_sub_label.text = ("✖ LOCKOUT  •  %.0f m/s" % dv) if eng else "✖ THRUST DEFICIT"
 		prop_value_label.add_theme_color_override("font_color", COLOR_CRIT)
 	elif not dv_ok:
 		prop_value_label.text = "%.0f / %.0f m/s" % [dv, req_dv]
-		prop_sub_label.text = ("DV LOW  •  T/W %.2f" % tw) if eng else ("Δv DEFICIT  •  %.2f" % tw)
+		prop_sub_label.text = ("⚠ DV LOW  •  T/W %.2f" % tw) if eng else ("⚠ Δv SHORT  •  %.2f" % tw)
 		prop_value_label.add_theme_color_override("font_color", COLOR_WARN)
 	else:
 		if eng:
@@ -381,8 +404,8 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 			prop_sub_label.text = "T/W %.2f  •  %.1f kN" % [tw, thrust_n / 1000.0]
 		else:
 			prop_value_label.text = "%.0f m/s" % dv
-			prop_sub_label.text = "SAFE LANDING T/W  •  %.2f" % tw
-		prop_value_label.add_theme_color_override("font_color", COLOR_WHITE)
+			prop_sub_label.text = "✔ SAFE T/W  •  %.2f" % tw
+		prop_value_label.add_theme_color_override("font_color", COLOR_ACCENT)
 
 	prop_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	prop_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -416,14 +439,18 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 		power_value_label.text = "%+.0f W" % net_p
 		power_sub_label.text = "%.0f/%.0f W  •  %.1f kWh" % [p_gen, p_use, batt_wh / 1000.0]
 	else:
-		var p_state: String = "POWER POSITIVE" if (power_ok and night_ok) else ("SOLAR BLACKOUT" if not power_ok else "NIGHT DRAIN")
+		var p_state: String = "✔ POSITIVE" if (power_ok and night_ok) else ("✖ BLACKOUT" if not power_ok else "⚠ NIGHT DRAIN")
 		power_value_label.text = "%+.0f W" % net_p
 		power_sub_label.text = "%s  •  %.0f kWh" % [p_state, batt_wh / 1000.0]
 
 	power_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	power_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	power_value_label.add_theme_color_override("font_color", COLOR_WHITE if power_ok else COLOR_CRIT)
+	power_value_label.add_theme_color_override("font_color", COLOR_ACCENT if power_ok else COLOR_CRIT)
 	_apply_card_style(card_power, border_col, bg_col)
+
+	if is_instance_valid(power_sparkline):
+		var sp_col: Color = COLOR_OK if (power_ok and night_ok) else (COLOR_CRIT if not power_ok else COLOR_WARN)
+		power_sparkline.push_sample(net_p, sp_col, true, 0.0)
 
 	card_power.tooltip_text = (
 		"Electrical Power & Thermal Balance (SI)\n"
@@ -451,13 +478,13 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		budget_value_label.text = "$%.0fM / $%.0fM" % [total_cost, cap_musd]
 		budget_sub_label.text = "LV $%.0fM  •  Sub $%.0fM" % [lv_cost, sub_cost]
 	else:
-		var badge: String = "SANDBOX CAP" if is_sandbox else ("WITHIN CAP" if budget_ok else "OVER BUDGET")
+		var badge: String = "SANDBOX CAP" if is_sandbox else ("✔ WITHIN CAP" if budget_ok else "✖ OVER BUDGET")
 		budget_value_label.text = "$%.0fM" % total_cost
 		budget_sub_label.text = "%s  •  $%.0fM" % [badge, cap_musd]
 
 	budget_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	budget_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	budget_value_label.add_theme_color_override("font_color", COLOR_WHITE if budget_ok else COLOR_CRIT)
+	budget_value_label.add_theme_color_override("font_color", COLOR_ACCENT if budget_ok else COLOR_CRIT)
 	_apply_card_style(card_budget, border_col, bg_col)
 
 	card_budget.tooltip_text = (
@@ -486,11 +513,11 @@ func _update_comms_card(snap: Dictionary, orbit: Dictionary, zone: Dictionary, e
 		comms_sub_label.text = "%.0f Mbps  •  DTE %.0f%%" % [dl_mbps, dte_pct]
 	else:
 		comms_value_label.text = "%.1f Mbps" % dl_mbps
-		comms_sub_label.text = "%s  •  %.0f pts" % ["LINK NOMINAL" if comms_ok else "DATA BOTTLENECK", sci_eff]
+		comms_sub_label.text = "%s  •  %.0f pts" % ["✔ LINK OK" if comms_ok else "⚠ BOTTLENECK", sci_eff]
 
 	comms_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	comms_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	comms_value_label.add_theme_color_override("font_color", COLOR_WHITE if comms_ok else COLOR_WARN)
+	comms_value_label.add_theme_color_override("font_color", COLOR_ACCENT if comms_ok else COLOR_WARN)
 	_apply_card_style(card_comms, border_col, bg_col)
 
 	card_comms.tooltip_text = (
@@ -520,13 +547,13 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 		rad_value_label.text = "%.0f d  •  %.0f mSv" % [life_days, dose_msv]
 		rad_sub_label.text = "%.1f g/cm²  •  %.0f krad" % [shield_g, tol_krad]
 	else:
-		var badge: String = "RAD SAFE" if rad_ok else ("RAD HAZARD" if life_days <= 0.0 else "SHORT LIFE")
+		var badge: String = "✔ RAD SAFE" if rad_ok else ("✖ RAD HAZARD" if life_days <= 0.0 else "⚠ SHORT LIFE")
 		rad_value_label.text = "%.0f d" % life_days
 		rad_sub_label.text = "%s  •  %.0f mSv" % [badge, dose_msv]
 
 	rad_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	rad_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	rad_value_label.add_theme_color_override("font_color", COLOR_WHITE if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
+	rad_value_label.add_theme_color_override("font_color", COLOR_ACCENT if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
 	_apply_card_style(card_radiation, border_col, bg_col)
 
 	card_radiation.tooltip_text = (
@@ -546,8 +573,8 @@ func _apply_card_style(card: PanelContainer, border_col: Color, bg_col: Color) -
 	style.set_border_width_all(1)
 	style.border_width_top = 2
 	style.set_corner_radius_all(4)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
+	style.content_margin_left = 8.0
+	style.content_margin_right = 8.0
+	style.content_margin_top = 3.0
+	style.content_margin_bottom = 3.0
 	card.add_theme_stylebox_override("panel", style)

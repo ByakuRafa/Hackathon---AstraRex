@@ -9,14 +9,14 @@ extends Control
 
 signal iterate_in_vab_requested()
 
-const COLOR_PANEL_BG: Color = Color(0.055, 0.082, 0.145, 0.96)
-const COLOR_ROW_BG: Color = Color(0.075, 0.110, 0.184, 0.96)
-const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)
-const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)
-const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)
-const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)
-const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)
+const COLOR_PANEL_BG: Color = BrandStyle.PANEL_900
+const COLOR_ROW_BG: Color = Color(0.065, 0.102, 0.175, 0.90)
+const COLOR_OK: Color = BrandStyle.PASS_EMERALD
+const COLOR_WARN: Color = BrandStyle.CAUTION_AMBER
+const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED
+const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
+const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var chart_card: PanelContainer = %ChartCard
 @onready var pareto_chart: ParetoChartControl = %ParetoChart
@@ -48,14 +48,49 @@ const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)
 var _is_debrief_active: bool = false
 var _refresh_queued: bool = false
 var _latest_report: Dictionary = {}
+var _debrief_sparkline: TelemetrySparkline = null
 
 
 func _ready() -> void:
+	BrandStyle.apply_brand_gradient_backdrop(get_node_or_null("BG") as ColorRect)
+	_setup_fonts_and_sparkline()
 	_style_panels()
 	_style_cta_button(btn_iterate_vab)
 	_connect_signals()
 	_sync_axis_buttons(ParetoChartControl.XAxisMode.COST_MUSD)
 	set_debrief_active(false)
+
+
+func _setup_fonts_and_sparkline() -> void:
+	BrandStyle.bind_mono_font(solver_status_label)
+	BrandStyle.bind_mono_font(hover_readout_label)
+	BrandStyle.bind_mono_font(status_pill_label)
+	BrandStyle.bind_mono_font(design_code_edit)
+	BrandStyle.bind_mono_font(export_status_label)
+
+	for btn: Button in [btn_axis_cost, btn_axis_mass, btn_export_csv, btn_export_json, btn_copy_code, btn_load_code, btn_iterate_vab]:
+		if is_instance_valid(btn):
+			btn.focus_mode = Control.FOCUS_NONE
+
+	# Inject compact 48x16 px radiation/margin vector sparkline into BenchmarkCard header row
+	if is_instance_valid(benchmark_card):
+		var vbox: VBoxContainer = benchmark_card.get_node_or_null("VBox") as VBoxContainer
+		if vbox != null:
+			var title_lbl: Label = vbox.get_node_or_null("Title") as Label
+			if title_lbl != null and not (title_lbl.get_parent() is HBoxContainer):
+				var hdr_row: HBoxContainer = HBoxContainer.new()
+				hdr_row.name = "BenchmarkHeaderRow"
+				hdr_row.add_theme_constant_override("separation", 8)
+				vbox.remove_child(title_lbl)
+				vbox.add_child(hdr_row)
+				vbox.move_child(hdr_row, 0)
+				title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				hdr_row.add_child(title_lbl)
+
+				_debrief_sparkline = TelemetrySparkline.new()
+				_debrief_sparkline.name = "DebriefRadSparkline"
+				_debrief_sparkline.tooltip_text = "Projected 180-Day Surface Dose Curve vs 100 mSv Mission Limit\n[NASA OSDR RadLab & LRO CRaTER]"
+				hdr_row.add_child(_debrief_sparkline)
 
 
 func set_debrief_active(active: bool) -> void:
@@ -139,7 +174,7 @@ func _render_primary_status_card(report: Dictionary) -> void:
 	var primary_diag: Dictionary = report.get("primary_diagnosis", {}) as Dictionary
 
 	var pill_col: Color = COLOR_OK if is_nominal else (COLOR_WARN if status_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT)
-	var pill_text: String = "MISSION SUCCESS • NOMINAL" if is_nominal else ("WARN • %s" % status_code if status_code == "DSN_DOWNLINK_BOTTLENECK" else "FAILURE • %s" % status_code)
+	var pill_text: String = "✔ PASS • NOMINAL" if is_nominal else ("⚠ CAUTION • %s" % status_code if status_code == "DSN_DOWNLINK_BOTTLENECK" else "✖ FAIL • %s" % status_code)
 	_apply_status_pill(pill_text, pill_col)
 
 	primary_title_label.text = str(primary_diag.get("title", "Mission Engineering Review"))
@@ -161,7 +196,7 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 	var bottlenecks: Array = report.get("all_bottlenecks", []) as Array
 	if bottlenecks.is_empty():
 		var opt_row: Label = _make_action_row(
-			"-> All SI constraints passed. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
+			"✔ PASS • All SI constraints satisfied. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
 			COLOR_OK,
 			"All NASA SP-2016-6105, JPL DE441, LRO LOLA, and OSDR RadLab envelopes satisfied."
 		)
@@ -170,7 +205,9 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 
 	for b_var: Variant in bottlenecks:
 		var b: Dictionary = b_var as Dictionary
-		var row_text: String = "-> [%s] %s" % [str(b.get("code", "")), str(b.get("recommendation", ""))]
+		var is_warn: bool = str(b.get("code", "")) == "DSN_DOWNLINK_BOTTLENECK"
+		var b_sym: String = "⚠" if is_warn else "✖"
+		var row_text: String = "%s [%s] %s" % [b_sym, str(b.get("code", "")), str(b.get("recommendation", ""))]
 		var tip: String = (
 			"%s\nCause: %s\n\nPhysics:\n%s\n\n[NASA Citation]\n%s"
 			% [
@@ -180,7 +217,6 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 				str(b.get("citation", ""))
 			]
 		)
-		var is_warn: bool = str(b.get("code", "")) == "DSN_DOWNLINK_BOTTLENECK"
 		bottlenecks_vbox.add_child(_make_action_row(row_text, COLOR_WARN if is_warn else COLOR_CRIT, tip))
 
 
@@ -267,13 +303,29 @@ func _render_benchmark_grid(report: Dictionary) -> void:
 
 	var dose_msv: float = float(telem.get("total_mission_dose_msv", 0.0))
 	var life_d: float = float(telem.get("mission_lifetime_days", 0.0))
+	var dose_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
 	_add_grid_row(
 		"Rad Dose & Life",
 		"%.1f mSv • %.0f d" % [dose_msv, life_d],
-		"Cap %.0f mSv" % NasaDataLoader.get_mission_dose_limit_msv(),
-		COLOR_OK if (dose_msv <= NasaDataLoader.get_mission_dose_limit_msv() and life_d >= 14.0) else COLOR_WARN
+		"Cap %.0f mSv" % dose_limit,
+		COLOR_OK if (dose_msv <= dose_limit and life_d >= 14.0) else COLOR_WARN
 	)
+	_update_debrief_sparkline(telem, dose_limit)
 	sync_engineer_mode(MissionState.engineer_mode)
+
+
+func _update_debrief_sparkline(telem: Dictionary, dose_limit: float) -> void:
+	if not is_instance_valid(_debrief_sparkline):
+		return
+	var transit_spe: float = float(telem.get("transit_dose_msv", 5.0)) + float(telem.get("spe_dose_msv", 0.0))
+	var daily_gcr: float = float(telem.get("daily_gcr_msv", 0.72))
+	var series: PackedFloat32Array = PackedFloat32Array()
+	for i: int in range(10):
+		var day_val: float = float(i) * 20.0
+		series.append(transit_spe + daily_gcr * day_val)
+	var final_dose: float = series[series.size() - 1]
+	var spark_col: Color = COLOR_CRIT if final_dose > dose_limit else (COLOR_WARN if final_dose > dose_limit * 0.7 else BrandStyle.NOMINAL_CYAN)
+	_debrief_sparkline.set_series(series, spark_col, true, dose_limit * 0.5)
 
 
 func sync_engineer_mode(eng: bool) -> void:
@@ -309,12 +361,14 @@ func _add_grid_row(metric: String, val_str: String, delta_str: String, col: Colo
 	v_lbl.text = val_str
 	v_lbl.add_theme_font_size_override("font_size", 12)
 	v_lbl.add_theme_color_override("font_color", COLOR_WHITE)
+	BrandStyle.bind_mono_font(v_lbl)
 
 	var d_lbl: Label = Label.new()
 	d_lbl.text = delta_str
 	d_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	d_lbl.add_theme_font_size_override("font_size", 12)
 	d_lbl.add_theme_color_override("font_color", col)
+	BrandStyle.bind_mono_font(d_lbl)
 
 	benchmark_grid.add_child(m_lbl)
 	benchmark_grid.add_child(v_lbl)
@@ -322,13 +376,38 @@ func _add_grid_row(metric: String, val_str: String, delta_str: String, col: Colo
 
 
 func _on_axis_mode_pressed(mode: ParetoChartControl.XAxisMode) -> void:
+	get_tree().call_group("main_shell", "play_sfx", "quindar_beep")
 	_sync_axis_buttons(mode)
 	pareto_chart.set_x_axis_mode(mode)
 
 
 func _sync_axis_buttons(mode: ParetoChartControl.XAxisMode) -> void:
-	btn_axis_cost.set_pressed_no_signal(mode == ParetoChartControl.XAxisMode.COST_MUSD)
-	btn_axis_mass.set_pressed_no_signal(mode == ParetoChartControl.XAxisMode.WET_MASS_KG)
+	var cost_active: bool = (mode == ParetoChartControl.XAxisMode.COST_MUSD)
+	btn_axis_cost.set_pressed_no_signal(cost_active)
+	btn_axis_mass.set_pressed_no_signal(not cost_active)
+	_apply_axis_btn_style(btn_axis_cost, cost_active)
+	_apply_axis_btn_style(btn_axis_mass, not cost_active)
+
+
+func _apply_axis_btn_style(btn: Button, active: bool) -> void:
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = Color(0.0, 0.259, 0.651, 0.90) if active else BrandStyle.PANEL_900
+	sb.border_color = BrandStyle.NEON_YELLOW if active else BrandStyle.BTN_BORDER
+	sb.set_border_width_all(1)
+	sb.border_width_bottom = 2 if active else 1
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 10.0
+	sb.content_margin_right = 10.0
+	sb.content_margin_top = 4.0
+	sb.content_margin_bottom = 4.0
+	var hover_sb: StyleBoxFlat = sb.duplicate() as StyleBoxFlat
+	hover_sb.border_color = BrandStyle.NEON_YELLOW
+	btn.add_theme_stylebox_override("normal", sb)
+	btn.add_theme_stylebox_override("pressed", sb)
+	btn.add_theme_stylebox_override("hover", hover_sb)
+	btn.add_theme_color_override("font_color", BrandStyle.NOMINAL_CYAN if active else BrandStyle.TEXT_HEADER)
+	btn.add_theme_color_override("font_pressed_color", BrandStyle.NOMINAL_CYAN)
+	btn.add_theme_color_override("font_hover_color", BrandStyle.NEON_YELLOW)
 
 
 func _on_chart_point_hovered(pt: Dictionary) -> void:
@@ -391,16 +470,7 @@ func _apply_status_pill(text_val: String, pill_color: Color) -> void:
 
 func _style_panels() -> void:
 	for panel: PanelContainer in [chart_card, primary_status_card, bottlenecks_card, benchmark_card, export_bar]:
-		var sb: StyleBoxFlat = StyleBoxFlat.new()
-		sb.bg_color = COLOR_PANEL_BG
-		sb.border_color = Color(0.18, 0.29, 0.45, 0.90)
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(6)
-		sb.content_margin_left = 14
-		sb.content_margin_right = 14
-		sb.content_margin_top = 8
-		sb.content_margin_bottom = 8
-		panel.add_theme_stylebox_override("panel", sb)
+		BrandStyle.apply_panel_style(panel, 14.0, 8.0, 8.0)
 
 	_ensure_wrapped_label_widths(primary_status_card)
 	if is_instance_valid(bottlenecks_vbox) and not (bottlenecks_vbox.get_parent() is ScrollContainer):
@@ -433,8 +503,8 @@ func _ensure_wrapped_label_widths(node: Node) -> void:
 
 func _style_cta_button(btn: Button) -> void:
 	var normal_sb: StyleBoxFlat = StyleBoxFlat.new()
-	normal_sb.bg_color = Color(0.06, 0.28, 0.44, 0.98)
-	normal_sb.border_color = COLOR_ACCENT
+	normal_sb.bg_color = Color(0.043, 0.239, 0.569, 0.96)
+	normal_sb.border_color = BrandStyle.NOMINAL_CYAN
 	normal_sb.set_border_width_all(1)
 	normal_sb.set_corner_radius_all(5)
 	normal_sb.content_margin_left = 12
@@ -442,7 +512,9 @@ func _style_cta_button(btn: Button) -> void:
 	normal_sb.content_margin_top = 8
 	normal_sb.content_margin_bottom = 8
 	var hover_sb: StyleBoxFlat = normal_sb.duplicate() as StyleBoxFlat
-	hover_sb.bg_color = Color(0.08, 0.36, 0.56, 1.0)
+	hover_sb.bg_color = Color(0.0, 0.259, 0.651, 1.0)
+	hover_sb.border_color = BrandStyle.NEON_YELLOW
 	btn.add_theme_stylebox_override("normal", normal_sb)
 	btn.add_theme_stylebox_override("hover", hover_sb)
 	btn.add_theme_color_override("font_color", COLOR_WHITE)
+	btn.add_theme_color_override("font_hover_color", BrandStyle.NEON_YELLOW)

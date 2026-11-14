@@ -6,7 +6,7 @@
 
 [sub_resource type="Environment" id="Environment_lunar"]
 background_mode = 1
-background_color = Color(0.012, 0.018, 0.032, 1)
+background_color = Color(0.02, 0.031, 0.059, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.45, 0.54, 0.72, 1)
 ambient_light_energy = 0.24
@@ -297,7 +297,7 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 theme_override_font_sizes/font_size = 13
-text = "Solar Storm (SPE)"
+text = "⚠ Solar Storm (SPE)"
 
 [node name="BtnSafeMode" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
 unique_name_in_owner = true

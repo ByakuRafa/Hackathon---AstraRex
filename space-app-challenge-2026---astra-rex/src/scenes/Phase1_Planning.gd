@@ -79,13 +79,13 @@ const ROLE_DEFS: Array[Dictionary] = [
 	}
 ]
 
-const COLOR_PANEL_BG: Color = Color(0.055, 0.082, 0.145, 0.96)
-const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)       # #10B981
-const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)     # #F59E0B
-const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)     # #EF4444
-const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)   # #38BDF8
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)          # #FFFFFF
-const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)    # #94A3B8
+const COLOR_OK: Color = BrandStyle.PASS_EMERALD           # #35E0A1
+const COLOR_WARN: Color = BrandStyle.CAUTION_AMBER        # #FFB224
+const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED         # #FF4560
+const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN       # #2FD3FF
+const COLOR_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW   # #EAFE07
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
+const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var objective_list: VBoxContainer = %ObjectiveList
 @onready var zone_list: VBoxContainer = %ZoneList
@@ -109,6 +109,7 @@ var _check_labels: Dictionary = {}
 
 
 func _ready() -> void:
+	BrandStyle.apply_brand_gradient_backdrop(get_node_or_null("BG") as ColorRect)
 	_style_background_panels()
 	_build_objective_buttons()
 	_build_landing_zone_buttons()
@@ -117,6 +118,8 @@ func _ready() -> void:
 	_build_orbit_buttons()
 	_build_check_grid()
 	_style_proceed_button()
+	BrandStyle.bind_mono_font(role_priority_label)
+	BrandStyle.bind_mono_font(check_status_banner)
 
 	btn_proceed_vab.pressed.connect(_on_proceed_pressed)
 	if not MissionState.state_updated.is_connected(_on_state_updated):
@@ -129,48 +132,47 @@ func _style_background_panels() -> void:
 	var bg_nodes: Array[Node] = find_children("*Panel", "PanelContainer", true, false)
 	for n: Node in bg_nodes:
 		var panel: PanelContainer = n as PanelContainer
-		if panel == null:
-			continue
-		var style: StyleBoxFlat = StyleBoxFlat.new()
-		style.bg_color = COLOR_PANEL_BG
-		style.border_color = Color(0.18, 0.29, 0.45, 0.90)
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(6)
-		style.content_margin_left = 16
-		style.content_margin_right = 16
-		style.content_margin_top = 14
-		style.content_margin_bottom = 14
-		panel.add_theme_stylebox_override("panel", style)
+		if panel != null:
+			BrandStyle.apply_panel_style(panel, 16.0, 12.0, 12.0)
 
 
 func _style_proceed_button() -> void:
+	btn_proceed_vab.focus_mode = Control.FOCUS_NONE
 	var normal_sb: StyleBoxFlat = StyleBoxFlat.new()
-	normal_sb.bg_color = Color(0.06, 0.28, 0.44, 0.98)
+	normal_sb.bg_color = Color(0.043, 0.239, 0.569, 0.96)
 	normal_sb.border_color = COLOR_ACCENT
 	normal_sb.set_border_width_all(1)
 	normal_sb.set_corner_radius_all(6)
-	normal_sb.content_margin_left = 14
-	normal_sb.content_margin_right = 14
-	normal_sb.content_margin_top = 10
-	normal_sb.content_margin_bottom = 10
+	normal_sb.content_margin_left = 14.0
+	normal_sb.content_margin_right = 14.0
+	normal_sb.content_margin_top = 10.0
+	normal_sb.content_margin_bottom = 10.0
 
 	var hover_sb: StyleBoxFlat = normal_sb.duplicate() as StyleBoxFlat
-	hover_sb.bg_color = Color(0.08, 0.36, 0.56, 1.0)
+	hover_sb.bg_color = Color(0.0, 0.259, 0.651, 1.0)
+	hover_sb.border_color = COLOR_NEON_YELLOW
 	btn_proceed_vab.add_theme_stylebox_override("normal", normal_sb)
 	btn_proceed_vab.add_theme_stylebox_override("hover", hover_sb)
 	btn_proceed_vab.add_theme_color_override("font_color", COLOR_WHITE)
+	btn_proceed_vab.add_theme_color_override("font_hover_color", COLOR_NEON_YELLOW)
+
+
+func _make_option_button(min_h: float, font_sz: int = 14) -> Button:
+	var btn: Button = Button.new()
+	btn.toggle_mode = true
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.custom_minimum_size = Vector2(0.0, min_h)
+	btn.add_theme_font_size_override("font_size", font_sz)
+	return btn
 
 
 func _build_objective_buttons() -> void:
 	for obj_def: Dictionary in OBJECTIVES:
 		var title: String = str(obj_def.get("title", ""))
 		var stats: String = str(obj_def.get("stats", ""))
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 52)
+		var btn: Button = _make_option_button(50.0)
 		btn.text = "%s\n%s" % [title, stats]
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "%s\n%s\nRecommended Hardware: %s\n\n[NASA Reference]\n%s" % [
 			title,
 			str(obj_def.get("summary", "")),
@@ -200,14 +202,10 @@ func _build_landing_zone_buttons() -> void:
 		var sci_mult: float = float(zone.get("science_multiplier", 1.0))
 		var elev_m: float = float(zone.get("elevation_m", 0.0))
 
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 52)
+		var btn: Button = _make_option_button(50.0)
 		btn.text = "%s\n%.1f°  •  %.0f%% Sun  •  x%.2f Sci" % [
 			short_name, slope, solar_pct, sci_mult
 		]
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = (
 			"Target Landing Site: %s\n" % full_label
 			+ "Elevation (LOLA): %.1f m | Mean Slope: %.1f deg\n" % [elev_m, slope]
@@ -221,12 +219,10 @@ func _build_landing_zone_buttons() -> void:
 
 func _build_team_controls() -> void:
 	for count: int in range(1, 5):
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
+		var btn: Button = _make_option_button(34.0)
+		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.custom_minimum_size = Vector2(0, 34)
 		btn.text = "%dP" % count if count > 1 else "1P Solo"
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "Configure team collaboration for %d mission engineer(s)." % count
 		btn.pressed.connect(_on_team_size_selected.bind(count))
 		team_size_row.add_child(btn)
@@ -234,12 +230,8 @@ func _build_team_controls() -> void:
 
 	for r_def: Dictionary in ROLE_DEFS:
 		var role_id: int = int(r_def.get("role", 0))
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 50)
+		var btn: Button = _make_option_button(48.0)
 		btn.text = "%s\n%s" % [str(r_def.get("short", "")), str(r_def.get("stats", ""))]
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "Asymmetric Team Role: %s\nPriority Metrics: %s" % [
 			MissionState.get_role_label(role_id),
 			str(r_def.get("focus", ""))
@@ -261,14 +253,10 @@ func _build_launch_vehicle_buttons() -> void:
 		var rel: float = float(lv.get("reliability", 0.98)) * 100.0
 		var citation: String = str(lv.get("nasa_citation", ""))
 
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 58)
+		var btn: Button = _make_option_button(56.0)
 		btn.text = "%s\n%.0f kg  •  $%.0fM  •  %.1f m" % [
 			short_name, max_tli, cost, fairing
 		]
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = (
 			"%s\nMax Trans-Lunar Injection (TLI) Payload: %.1f kg\n" % [lv_name, max_tli]
 			+ "Launch Cost: $%.1f M | Fairing Diameter: %.1f m\n" % [cost, fairing]
@@ -291,14 +279,10 @@ func _build_orbit_buttons() -> void:
 		var citation: String = str(orb.get("nasa_citation", ""))
 		var desc: String = str(orb.get("description", ""))
 
-		var btn: Button = Button.new()
-		btn.toggle_mode = true
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 58)
+		var btn: Button = _make_option_button(56.0)
 		btn.text = "%s\n%.0f m/s  •  %.0f%% DTE  •  %.1f h" % [
 			short_name, req_dv, dte_pct, period_h
 		]
-		btn.add_theme_font_size_override("font_size", 14)
 		btn.tooltip_text = "%s\n%s\n\n[NASA Citation]\n%s" % [orb_name, desc, citation]
 		btn.pressed.connect(_on_orbit_selected.bind(orb_id))
 		orbit_list.add_child(btn)
@@ -327,39 +311,54 @@ func _build_check_grid() -> void:
 		val_lbl.text = "--"
 		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		val_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		val_lbl.add_theme_font_size_override("font_size", 14)
+		val_lbl.add_theme_font_size_override("font_size", 13)
+		BrandStyle.bind_mono_font(val_lbl)
 		check_metrics_grid.add_child(val_lbl)
 
 		_check_labels[key] = val_lbl
 
 
 func _on_objective_selected(title: String) -> void:
+	_play_ui_sfx("ui_hover_tick")
 	MissionState.selected_objective = title
 	MissionState.recalculate_all_telemetry(false)
 
 
 func _on_zone_selected(zone_id: String) -> void:
+	_play_ui_sfx("ui_hover_tick")
 	MissionState.set_landing_zone(zone_id)
 
 
 func _on_team_size_selected(count: int) -> void:
+	_play_ui_sfx("ui_hover_tick")
 	MissionState.set_team_size(count)
 
 
 func _on_role_selected(role_id: int) -> void:
+	_play_ui_sfx("ui_hover_tick")
 	MissionState.set_active_role(role_id)
 
 
 func _on_launch_vehicle_selected(lv_id: String) -> void:
+	_play_ui_sfx("vab_snap")
 	MissionState.set_launch_vehicle(lv_id)
 
 
 func _on_orbit_selected(orbit_id: String) -> void:
+	_play_ui_sfx("quindar_beep")
 	MissionState.set_orbit(orbit_id)
 
 
 func _on_proceed_pressed() -> void:
 	proceed_to_vab_requested.emit()
+
+
+func _play_ui_sfx(sfx_name: String) -> void:
+	if not is_inside_tree():
+		return
+	var shell: Node = get_tree().get_first_node_in_group("main_shell")
+	if is_instance_valid(shell) and shell.has_method("play_sfx"):
+		shell.call("play_sfx", sfx_name)
 
 
 func _on_state_updated(snap: Dictionary) -> void:
@@ -463,20 +462,20 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 
 	var pill_color: Color = COLOR_OK if compat else COLOR_CRIT
 	if eng:
-		check_status_banner.text = "COMPATIBILITY: PASS" if compat else "COMPATIBILITY: FAIL"
+		check_status_banner.text = "✔ PASS • COMPATIBLE" if compat else "✖ FAIL • INCOMPATIBLE"
 	else:
-		check_status_banner.text = "READY FOR LAUNCH" if compat else "FIX DESIGN WARNINGS"
+		check_status_banner.text = "✔ PASS • READY FOR LAUNCH" if compat else "✖ FAIL • FIX DESIGN WARNINGS"
 	check_status_banner.add_theme_color_override("font_color", COLOR_WHITE)
 
 	var pill: StyleBoxFlat = StyleBoxFlat.new()
-	pill.bg_color = Color(pill_color.r * 0.35, pill_color.g * 0.35, pill_color.b * 0.35, 0.96)
+	pill.bg_color = Color(pill_color.r * 0.28, pill_color.g * 0.28, pill_color.b * 0.28, 0.94)
 	pill.border_color = pill_color
 	pill.set_border_width_all(1)
 	pill.set_corner_radius_all(6)
-	pill.content_margin_left = 12
-	pill.content_margin_right = 12
-	pill.content_margin_top = 8
-	pill.content_margin_bottom = 8
+	pill.content_margin_left = 12.0
+	pill.content_margin_right = 12.0
+	pill.content_margin_top = 8.0
+	pill.content_margin_bottom = 8.0
 	check_status_banner.add_theme_stylebox_override("normal", pill)
 
 	var reasons_raw: Array = check.get("reasons", []) as Array
@@ -492,28 +491,28 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 
 	var lbl_mass: Label = _check_labels["mass"] as Label
 	if eng:
-		lbl_mass.text = "%.0f / %.0f kg" % [m0_wet, max_tli]
+		lbl_mass.text = "%s %.0f / %.0f kg" % ["✔" if mass_ok else "✖", m0_wet, max_tli]
 	else:
-		lbl_mass.text = "%.0f kg (%s)" % [m0_wet, "SAFE MARGIN" if mass_ok else "OVERLOAD"]
+		lbl_mass.text = "%.0f kg (%s)" % [m0_wet, "✔ MARGIN" if mass_ok else "✖ OVERLOAD"]
 	lbl_mass.add_theme_color_override("font_color", COLOR_OK if mass_ok else COLOR_CRIT)
 
 	var lbl_dv: Label = _check_labels["dv"] as Label
-	lbl_dv.text = ("%.0f / %.0f m/s" % [dv, req_dv]) if eng else ("%.0f m/s (%s)" % [dv, "OK" if dv_ok else "SHORT"])
+	lbl_dv.text = ("%s %.0f / %.0f m/s" % ["✔" if dv_ok else "⚠", dv, req_dv]) if eng else ("%.0f m/s (%s)" % [dv, "✔ OK" if dv_ok else "⚠ SHORT"])
 	lbl_dv.add_theme_color_override("font_color", COLOR_OK if dv_ok else COLOR_WARN)
 
 	var lbl_tw: Label = _check_labels["tw"] as Label
 	if eng:
-		lbl_tw.text = "%.2f (%s)" % [tw, "T/W >= 1.0" if tw_ok else "< 1.0 LOCKOUT"]
+		lbl_tw.text = "%.2f (%s)" % [tw, "✔ T/W >= 1.0" if tw_ok else "✖ < 1.0 LOCKOUT"]
 	else:
-		lbl_tw.text = "SAFE LANDING T/W" if tw_ok else "THRUST DEFICIT"
+		lbl_tw.text = "✔ SAFE LANDING T/W" if tw_ok else "✖ THRUST DEFICIT"
 	lbl_tw.add_theme_color_override("font_color", COLOR_OK if tw_ok else COLOR_CRIT)
 
 	var lbl_dte: Label = _check_labels["dte"] as Label
-	lbl_dte.text = "%.0f%%" % dte_pct
+	lbl_dte.text = "%s %.0f%%" % ["✔" if dte_pct >= 35.0 else "⚠", dte_pct]
 	lbl_dte.add_theme_color_override("font_color", COLOR_OK if dte_pct >= 35.0 else COLOR_WARN)
 
 	var lbl_cost: Label = _check_labels["cost"] as Label
-	lbl_cost.text = "$%.0fM / $%.0fM" % [cost, cap]
+	lbl_cost.text = "%s $%.0fM / $%.0fM" % ["✔" if budget_ok else "✖", cost, cap]
 	lbl_cost.add_theme_color_override("font_color", COLOR_OK if budget_ok else COLOR_CRIT)
 
 	var lv_info: Dictionary = NasaDataLoader.get_launch_vehicle(str(snap.get("launch_vehicle_id", "")))

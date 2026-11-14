@@ -1,0 +1,11 @@
+[gd_resource type="FontVariation" load_steps=2 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/JetBrainsMono-Regular.ttf" id="1_jbmono"]
+
+[resource]
+base_font = ExtResource("1_jbmono")
+opentype_features = {
+1953396077: 1
+}
+spacing_top = -1
+spacing_bottom = -1

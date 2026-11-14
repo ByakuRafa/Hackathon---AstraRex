@@ -37,14 +37,15 @@ const ZONE_LABELS: Dictionary = {
 	"crater_floor_psr": "Crater Floor (PSR)"
 }
 
-const COLOR_PANEL_BG: Color = Color(0.055, 0.082, 0.145, 0.92)
-const COLOR_BOTTOM_BG: Color = Color(0.043, 0.067, 0.125, 0.94)
-const COLOR_OK: Color = Color(0.063, 0.725, 0.506, 1.0)
-const COLOR_WARN: Color = Color(0.961, 0.620, 0.043, 1.0)
-const COLOR_CRIT: Color = Color(0.937, 0.267, 0.267, 1.0)
-const COLOR_ACCENT: Color = Color(0.220, 0.741, 0.973, 1.0)
-const COLOR_WHITE: Color = Color(1.0, 1.0, 1.0, 1.0)
-const COLOR_MUTED: Color = Color(0.580, 0.639, 0.722, 1.0)
+const COLOR_PANEL_BG: Color = BrandStyle.PANEL_900                   # #0E1624 @ 88%
+const COLOR_BOTTOM_BG: Color = Color(0.055, 0.086, 0.141, 0.92)     # #0E1624 @ 92%
+const COLOR_OK: Color = BrandStyle.PASS_EMERALD                     # #35E0A1
+const COLOR_WARN: Color = BrandStyle.CAUTION_AMBER                  # #FFB224
+const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED                   # #FF4560
+const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN                 # #2FD3FF
+const COLOR_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW             # #EAFE07
+const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
+const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var lunar_world: Node3D = %LunarWorld
 @onready var terrain_body: StaticBody3D = %TerrainBody
@@ -132,6 +133,7 @@ var _debrief_highlight_pulse: float = 0.0
 
 func _ready() -> void:
 	_style_panels()
+	_bind_tabular_telemetry_fonts()
 	_enforce_double_sided_materials(lunar_world)
 	_build_shackleton_terrain()
 	_build_zone_markers()
@@ -141,6 +143,43 @@ func _ready() -> void:
 	_refresh_zone_buttons()
 	_refresh_ui_labels()
 	set_lunar_sim_active(false)
+
+
+func _bind_tabular_telemetry_fonts() -> void:
+	for lbl: Label in [
+		sim_status_pill,
+		telemetry_agl_label,
+		telemetry_vel_label,
+		telemetry_slope_label,
+		telemetry_solar_label,
+		telemetry_dte_label,
+		telemetry_rad_label,
+		telemetry_day_label,
+	]:
+		BrandStyle.bind_mono_font(lbl)
+	for btn: Button in [
+		btn_zone_rim, btn_zone_wall, btn_zone_psr,
+		btn_lidar_overlay, btn_reset_cam,
+		btn_back_vab, btn_restart_descent, btn_spe_storm,
+		btn_safe_mode, btn_advance_days, btn_proceed_debrief,
+	]:
+		btn.focus_mode = Control.FOCUS_NONE
+
+
+func _play_sim_sfx(sfx_name: String) -> void:
+	if not is_inside_tree():
+		return
+	var shell: Node = get_tree().get_first_node_in_group("main_shell")
+	if is_instance_valid(shell) and shell.has_method("play_sfx"):
+		shell.call("play_sfx", sfx_name)
+
+
+func _set_sim_loop_sfx(sfx_name: String, active: bool) -> void:
+	if not is_inside_tree():
+		return
+	var shell: Node = get_tree().get_first_node_in_group("main_shell")
+	if is_instance_valid(shell) and shell.has_method("set_loop_sfx"):
+		shell.call("set_loop_sfx", sfx_name, active)
 
 
 func _enforce_double_sided_materials(root_node: Node) -> void:
@@ -190,6 +229,8 @@ func set_lunar_sim_active(active: bool) -> void:
 		start_or_restart_descent()
 		_perform_celestial_raycasts()
 		_update_camera_transform(true)
+	else:
+		_set_sim_loop_sfx("thruster_burn", false)
 
 
 func _process(delta: float) -> void:
@@ -204,13 +245,6 @@ func _process(delta: float) -> void:
 
 	if _sim_phase == SimPhase.LANDED_TIPOVER:
 		lander_pivot.rotation_degrees.z = lerpf(lander_pivot.rotation_degrees.z, _tipover_target_roll_deg, clampf(delta * 4.0, 0.0, 1.0))
-
-	if _sim_phase == SimPhase.ABORTED_LOCKOUT or _sim_phase == SimPhase.LANDED_TIPOVER:
-		_debrief_highlight_pulse += delta * 4.0
-		var glow: float = 0.5 + 0.5 * sin(_debrief_highlight_pulse)
-		_style_cta_button(btn_proceed_debrief, Color(0.75 + 0.25 * glow, 0.24, 0.24, 1.0), Color(0.35 + 0.20 * glow, 0.08, 0.10, 0.98))
-	else:
-		_style_cta_button(btn_proceed_debrief, COLOR_ACCENT, Color(0.06, 0.28, 0.44, 0.98))
 
 
 func _physics_process(delta: float) -> void:
@@ -241,7 +275,8 @@ func _physics_process(delta: float) -> void:
 			_sim_phase = SimPhase.ABORTED_LOCKOUT
 			_lander_vel_y = 0.0
 			_update_plume_visual(false, 0.0)
-			_apply_status_pill("ABORT: T/W < 1.0 — Insufficient Lunar Thrust", COLOR_CRIT)
+			_play_sim_sfx("spe_alarm")
+			_apply_status_pill("✖ FAIL: T/W < 1.0 — Insufficient Thrust", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			_refresh_ui_labels()
 			descent_completed.emit(false)
@@ -260,7 +295,8 @@ func _physics_process(delta: float) -> void:
 			_sim_phase = SimPhase.ABORTED_LOCKOUT
 			_lander_vel_y = 0.0
 			_update_plume_visual(false, 0.0)
-			_apply_status_pill("ABORT: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
+			_play_sim_sfx("spe_alarm")
+			_apply_status_pill("✖ FAIL: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			descent_completed.emit(false)
 		_refresh_ui_labels()
@@ -270,7 +306,7 @@ func _physics_process(delta: float) -> void:
 	if MissionState.selected_landing_zone_id == "inner_wall_hazard" and MissionState.has_lidar_trn and agl_m < 13.0:
 		if not _trn_divert_applied:
 			_trn_divert_applied = true
-			_apply_status_pill("TRN ACTIVE: Diverting to <15° Pad", COLOR_ACCENT)
+			_apply_status_pill("✔ TRN ACTIVE: Diverting to <15° Pad", COLOR_ACCENT)
 		# Lateral hazard avoidance micro-divert
 		lander_pivot.position.x = lerpf(lander_pivot.position.x, target_xz.x - 1.4, delta * 1.8)
 		lander_pivot.position.z = lerpf(lander_pivot.position.z, target_xz.y + 0.8, delta * 1.8)
@@ -326,17 +362,20 @@ func _on_touchdown() -> void:
 			_touchdown_slope_deg = 11.8
 			_sim_phase = SimPhase.LANDED_NOMINAL
 			lander_pivot.rotation_degrees = Vector3.ZERO
-			_apply_status_pill("TOUCHDOWN: TRN Stabilized (11.8° <= 15°)", COLOR_OK)
+			_play_sim_sfx("touchdown_confirm")
+			_apply_status_pill("✔ PASS: TRN Touchdown (11.8° <= 15°)", COLOR_OK)
 		else:
 			_touchdown_slope_deg = maxf(zone_mean_slope, sampled_slope)
 			_sim_phase = SimPhase.LANDED_TIPOVER
 			_tipover_target_roll_deg = 58.0
-			_apply_status_pill("FAILURE: SLOPE TIP-OVER (>15° NO TRN)", COLOR_CRIT)
+			_play_sim_sfx("spe_alarm")
+			_apply_status_pill("✖ FAIL: SLOPE TIP-OVER (>15° NO TRN)", COLOR_CRIT)
 	else:
 		_touchdown_slope_deg = zone_mean_slope if sampled_slope < 2.0 else clampf(sampled_slope, 1.0, 14.5)
 		_sim_phase = SimPhase.LANDED_NOMINAL
 		lander_pivot.rotation_degrees = Vector3.ZERO
-		_apply_status_pill("TOUCHDOWN NOMINAL • SURFACE OPS", COLOR_OK)
+		_play_sim_sfx("touchdown_confirm")
+		_apply_status_pill("✔ NOMINAL • TOUCHDOWN & SURFACE OPS", COLOR_OK)
 
 	MissionState.record_touchdown_slope(_touchdown_slope_deg)
 	_perform_celestial_raycasts()
@@ -363,9 +402,9 @@ func start_or_restart_descent() -> void:
 
 	var can_land_info: Dictionary = MissionState.can_safely_land_on_moon()
 	if bool(can_land_info.get("can_land", false)):
-		_apply_status_pill("PID TERMINAL DESCENT ACTIVE", COLOR_ACCENT)
+		_apply_status_pill("✔ PID TERMINAL DESCENT ACTIVE", COLOR_ACCENT)
 	else:
-		_apply_status_pill("PRE-DESCENT WARNING: %s" % str(can_land_info.get("reason", "LOCKOUT")), COLOR_WARN)
+		_apply_status_pill("⚠ CAUTION: %s" % str(can_land_info.get("reason", "LOCKOUT")), COLOR_WARN)
 
 	camera_pivot.position = Vector3(target_xz.x, ground_y + 2.5, target_xz.y)
 	_update_zone_marker_highlights()
@@ -685,8 +724,11 @@ func _perform_celestial_raycasts() -> void:
 	var earth_blocked_by_rim: bool = earth_dte_raycast.is_colliding()
 
 	# NRHO L2 9:2 orbital geometry provides high-elevation polar relay even when low-elevation horizon is masked
+	var prev_dte_occluded: bool = _dte_occluded
 	var effective_dte_occluded: bool = earth_blocked_by_rim and not MissionState.orbit_id_is_nrho()
 	_dte_occluded = effective_dte_occluded
+	if prev_dte_occluded and not _dte_occluded:
+		_play_sim_sfx("quindar_beep")
 
 	var incidence_deg: float = 90.0 if _solar_occluded else 88.15
 	if _solar_occluded != MissionState.in_psr_shadow or absf(incidence_deg - MissionState.solar_incidence_deg) > 0.5:
@@ -698,6 +740,8 @@ func _perform_celestial_raycasts() -> void:
 
 
 func _update_plume_visual(active: bool, throttle: float) -> void:
+	var burn_on: bool = _is_sim_active and _sim_phase == SimPhase.DESCENDING and active and throttle > 0.05
+	_set_sim_loop_sfx("thruster_burn", burn_on)
 	if not is_instance_valid(thruster_plume):
 		return
 	thruster_plume.visible = active and throttle > 0.05
@@ -753,6 +797,7 @@ func _on_state_updated(_snap: Dictionary) -> void:
 
 func _on_zone_selected(zone_id: String) -> void:
 	_elapsed_surface_days = 0.0
+	_play_sim_sfx("quindar_beep")
 	MissionState.set_landing_zone(zone_id)
 	_refresh_zone_buttons()
 	if _is_sim_active:
@@ -761,6 +806,7 @@ func _on_zone_selected(zone_id: String) -> void:
 
 
 func _on_lidar_overlay_toggled(toggled_on: bool) -> void:
+	_play_sim_sfx("ui_hover_tick")
 	if is_instance_valid(terrain_mesh):
 		if toggled_on and _terrain_shader_mat != null:
 			_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0)
@@ -772,8 +818,10 @@ func _on_lidar_overlay_toggled(toggled_on: bool) -> void:
 func _on_spe_storm_toggled(toggled_on: bool) -> void:
 	_spe_active = toggled_on
 	if toggled_on:
+		_play_sim_sfx("spe_alarm")
 		MissionState.trigger_spe_storm(24.0, _safe_mode_active)
 	else:
+		_play_sim_sfx("ui_hover_tick")
 		MissionState.clear_spe_storm()
 	_refresh_ui_labels()
 
@@ -825,12 +873,14 @@ func _refresh_ui_labels() -> void:
 		telemetry_vel_label.text = "Vel: %+.1f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
 	telemetry_slope_label.text = "Slope: %.1f°  •  TRN %s" % [_touchdown_slope_deg, "ON" if MissionState.has_lidar_trn else "OFF"]
 
+	var solar_prefix: String = "✔ " if MissionState.net_power_w >= 0.0 else "✖ "
 	var solar_state: String = ("SHADOW (PSR)" if _solar_occluded else "SUNLIT (1.8°)") if eng else ("POWER POSITIVE" if MissionState.net_power_w >= 0.0 else "SOLAR BLACKOUT")
-	telemetry_solar_label.text = "%s  •  %+.0f W" % [("Solar: %s" % solar_state) if eng else solar_state, MissionState.net_power_w]
+	telemetry_solar_label.text = "%s%s  •  %+.0f W" % [solar_prefix, ("Solar: %s" % solar_state) if eng else solar_state, MissionState.net_power_w]
 	telemetry_solar_label.add_theme_color_override("font_color", COLOR_OK if MissionState.net_power_w >= 0.0 else COLOR_CRIT)
 
+	var dte_prefix: String = "⚠ " if _dte_occluded else "✔ "
 	var dte_state: String = "OCCLUDED" if _dte_occluded else ("NRHO RELAY" if MissionState.orbit_id_is_nrho() and zone_id == "crater_floor_psr" else "DTE CLEAR")
-	telemetry_dte_label.text = "DSN: %s (%.0f%%)" % [dte_state, MissionState.dte_visibility_pct]
+	telemetry_dte_label.text = "%sDSN: %s (%.0f%%)" % [dte_prefix, dte_state, MissionState.dte_visibility_pct]
 	telemetry_dte_label.add_theme_color_override("font_color", COLOR_WARN if _dte_occluded else COLOR_WHITE)
 
 	var cum_rad_msv: float = MissionState.total_mission_dose_msv
@@ -839,10 +889,11 @@ func _refresh_ui_labels() -> void:
 	var rad_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
 	var rad_flag: String = "SPE STORM" if _spe_active else ("SAFE" if _safe_mode_active else "GCR")
 	var rad_hazard: bool = (cum_rad_msv > rad_limit) or (_spe_active and not MissionState.has_radhard_obc)
+	var rad_prefix: String = "✖ " if rad_hazard else ("⚠ " if _spe_active else "✔ ")
 	if eng:
-		telemetry_rad_label.text = "Rad (%s): %.1f / %.0f mSv" % [rad_flag, cum_rad_msv, rad_limit]
+		telemetry_rad_label.text = "%sRad (%s): %.1f / %.0f mSv" % [rad_prefix, rad_flag, cum_rad_msv, rad_limit]
 	else:
-		telemetry_rad_label.text = "%s (%s): %.0f mSv" % ["RAD HAZARD" if rad_hazard else "RAD SAFE", rad_flag, cum_rad_msv]
+		telemetry_rad_label.text = "%s%s (%s): %.0f mSv" % [rad_prefix, "RAD HAZARD" if rad_hazard else "RAD SAFE", rad_flag, cum_rad_msv]
 	telemetry_rad_label.add_theme_color_override("font_color", COLOR_CRIT if rad_hazard else (COLOR_WARN if _spe_active else COLOR_OK))
 
 	var op_life: float = MissionState.mission_lifetime_days
@@ -893,29 +944,33 @@ func _apply_status_pill(text_val: String, pill_color: Color) -> void:
 
 
 func _style_panels() -> void:
-	var left_sb: StyleBoxFlat = StyleBoxFlat.new()
-	left_sb.bg_color = COLOR_PANEL_BG
-	left_sb.border_color = Color(0.18, 0.29, 0.45, 0.90)
-	left_sb.set_border_width_all(1)
-	left_sb.set_corner_radius_all(6)
-	left_sb.content_margin_left = 14
-	left_sb.content_margin_right = 14
-	left_sb.content_margin_top = 12
-	left_sb.content_margin_bottom = 12
-	left_panel.add_theme_stylebox_override("panel", left_sb)
+	BrandStyle.apply_panel_style(left_panel, 14.0, 12.0, 12.0)
+	BrandStyle.apply_panel_style(bottom_bar, 12.0, 8.0, 8.0)
 
-	var bot_sb: StyleBoxFlat = StyleBoxFlat.new()
-	bot_sb.bg_color = COLOR_BOTTOM_BG
-	bot_sb.border_color = Color(0.18, 0.29, 0.45, 0.90)
-	bot_sb.set_border_width_all(1)
-	bot_sb.set_corner_radius_all(6)
-	bot_sb.content_margin_left = 12
-	bot_sb.content_margin_right = 12
-	bot_sb.content_margin_top = 8
-	bot_sb.content_margin_bottom = 8
-	bottom_bar.add_theme_stylebox_override("panel", bot_sb)
+	# Caution styling (#FFB224) on SPE Solar Storm trigger button
+	var spe_norm: StyleBoxFlat = StyleBoxFlat.new()
+	spe_norm.bg_color = Color(0.18, 0.125, 0.04, 0.92)
+	spe_norm.border_color = COLOR_WARN
+	spe_norm.set_border_width_all(1)
+	spe_norm.set_corner_radius_all(5)
+	spe_norm.content_margin_left = 10.0
+	spe_norm.content_margin_right = 10.0
+	spe_norm.content_margin_top = 6.0
+	spe_norm.content_margin_bottom = 6.0
+	var spe_hover: StyleBoxFlat = spe_norm.duplicate() as StyleBoxFlat
+	spe_hover.border_color = COLOR_NEON_YELLOW
+	var spe_pressed: StyleBoxFlat = spe_norm.duplicate() as StyleBoxFlat
+	spe_pressed.bg_color = Color(0.32, 0.16, 0.03, 0.98)
+	spe_pressed.border_color = COLOR_WARN
+	spe_pressed.set_border_width_all(2)
+	btn_spe_storm.add_theme_stylebox_override("normal", spe_norm)
+	btn_spe_storm.add_theme_stylebox_override("hover", spe_hover)
+	btn_spe_storm.add_theme_stylebox_override("pressed", spe_pressed)
+	btn_spe_storm.add_theme_color_override("font_color", COLOR_WARN)
+	btn_spe_storm.add_theme_color_override("font_hover_color", COLOR_NEON_YELLOW)
+	btn_spe_storm.add_theme_color_override("font_pressed_color", COLOR_WARN)
 
-	_style_cta_button(btn_proceed_debrief, COLOR_ACCENT, Color(0.06, 0.28, 0.44, 0.98))
+	_style_cta_button(btn_proceed_debrief, COLOR_ACCENT, Color(0.043, 0.239, 0.569, 0.96))
 
 
 func _style_cta_button(btn: Button, border_col: Color, bg_col: Color) -> void:
@@ -931,9 +986,11 @@ func _style_cta_button(btn: Button, border_col: Color, bg_col: Color) -> void:
 
 	var hover_sb: StyleBoxFlat = normal_sb.duplicate() as StyleBoxFlat
 	hover_sb.bg_color = Color(minf(1.0, bg_col.r + 0.08), minf(1.0, bg_col.g + 0.08), minf(1.0, bg_col.b + 0.12), 1.0)
+	hover_sb.border_color = COLOR_NEON_YELLOW
 	btn.add_theme_stylebox_override("normal", normal_sb)
 	btn.add_theme_stylebox_override("hover", hover_sb)
 	btn.add_theme_color_override("font_color", COLOR_WHITE)
+	btn.add_theme_color_override("font_hover_color", COLOR_NEON_YELLOW)
 
 
 func _on_viewport_gui_input(event: InputEvent) -> void:

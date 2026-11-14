@@ -1,16 +1,18 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" load_steps=12 format=3]
+
+[ext_resource type="FontVariation" path="res://src/ui/FontUI_Barlow.tres" id="1_barlow"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_disabled"]
 content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0.055, 0.078, 0.125, 0.7)
+bg_color = Color(0.035, 0.055, 0.098, 0.72)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.149, 0.216, 0.329, 0.55)
+border_color = Color(0.165, 0.231, 0.333, 0.55)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -21,12 +23,12 @@ content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0.102, 0.153, 0.251, 0.98)
+bg_color = Color(0.075, 0.145, 0.255, 0.98)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.22, 0.741, 0.973, 0.95)
+border_color = Color(0.184, 0.827, 1, 0.98)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -37,12 +39,12 @@ content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0.122, 0.18, 0.294, 0.98)
+bg_color = Color(0.082, 0.133, 0.224, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.22, 0.741, 0.973, 0.95)
+border_color = Color(0.918, 0.996, 0.027, 0.95)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -53,12 +55,12 @@ content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0.086, 0.125, 0.204, 0.96)
+bg_color = Color(0.055, 0.086, 0.141, 0.92)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.2, 0.31, 0.482, 0.85)
+border_color = Color(0.31, 0.416, 0.573, 1)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -69,19 +71,19 @@ content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0.094, 0.212, 0.341, 0.98)
+bg_color = Color(0.043, 0.239, 0.569, 0.92)
 border_width_left = 3
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.22, 0.741, 0.973, 1)
+border_color = Color(0.184, 0.827, 1, 1)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_hsep"]
-color = Color(0.149, 0.227, 0.349, 0.8)
+color = Color(0.165, 0.231, 0.333, 0.85)
 thickness = 1
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lineedit"]
@@ -89,12 +91,12 @@ content_margin_left = 10.0
 content_margin_top = 6.0
 content_margin_right = 10.0
 content_margin_bottom = 6.0
-bg_color = Color(0.043, 0.067, 0.125, 0.98)
+bg_color = Color(0.02, 0.031, 0.059, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.2, 0.31, 0.482, 0.85)
+border_color = Color(0.31, 0.416, 0.573, 0.95)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -105,12 +107,12 @@ content_margin_left = 14.0
 content_margin_top = 12.0
 content_margin_right = 14.0
 content_margin_bottom = 12.0
-bg_color = Color(0.055, 0.082, 0.145, 0.96)
+bg_color = Color(0.055, 0.086, 0.141, 0.88)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.18, 0.29, 0.45, 0.9)
+border_color = Color(0.165, 0.231, 0.333, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -121,28 +123,29 @@ content_margin_left = 12.0
 content_margin_top = 12.0
 content_margin_right = 12.0
 content_margin_bottom = 12.0
-bg_color = Color(0.043, 0.067, 0.125, 0.98)
+bg_color = Color(0.02, 0.031, 0.059, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.22, 0.741, 0.973, 0.95)
+border_color = Color(0.184, 0.827, 1, 0.95)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_vsep"]
-color = Color(0.149, 0.227, 0.349, 0.8)
+color = Color(0.165, 0.231, 0.333, 0.85)
 thickness = 1
 vertical = true
 
 [resource]
+default_font = ExtResource("1_barlow")
 default_font_size = 14
 Button/colors/font_color = Color(1, 1, 1, 1)
 Button/colors/font_disabled_color = Color(0.58, 0.639, 0.722, 0.65)
 Button/colors/font_focus_color = Color(0.902, 0.945, 1, 1)
-Button/colors/font_hover_color = Color(0.902, 0.945, 1, 1)
+Button/colors/font_hover_color = Color(0.918, 0.996, 0.027, 1)
 Button/colors/font_pressed_color = Color(1, 1, 1, 1)
 Button/font_sizes/font_size = 14
 Button/styles/disabled = SubResource("StyleBoxFlat_btn_disabled")
