@@ -34,80 +34,80 @@ shape = SubResource("CylinderShape3D_bus")
 [node name="Mount_Chassis" type="Marker3D" parent="."]
 
 [node name="Mount_Propulsion" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.54, 0)
 
 [node name="Mesh_prop_chem_biprop" parent="Mount_Propulsion" instance=ExtResource("3_biprop")]
 transform = Transform3D(0.44, 0, 0, 0, 0.44, 0, 0, 0, 0.44, 0, 0, 0)
 
 [node name="Mesh_prop_ion_sep" parent="Mount_Propulsion" instance=ExtResource("4_ion")]
-transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
+transform = Transform3D(0.72, 0, 0, 0, 0.72, 0, 0, 0, 0.72, 0, 0, 0)
 visible = false
 
 [node name="Mount_Power_Port" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.16, 1.05, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.76, 0.94, 0)
 
 [node name="Mesh_pwr_solar_lro" parent="Mount_Power_Port" instance=ExtResource("5_solar")]
-transform = Transform3D(0.508637, 0.108114, 0, -0.095459, 0.4491, -0.244125, -0.050756, 0.238791, 0.459133, -0.04, 0.12, 0)
+transform = Transform3D(0.475329, 0.066803, 0, -0.060544, 0.430794, -0.202857, -0.028232, 0.200883, 0.435028, 0.02, 0.02, 0.14)
 visible = false
 
 [node name="Mesh_pwr_rtg_mmrtg" parent="Mount_Power_Port" instance=ExtResource("6_rtg")]
-transform = Transform3D(0.346725, -0.270891, 0, 0.270891, 0.346725, 0, 0, 0, 0.44, -0.24, -0.12, 0)
+transform = Transform3D(0.270891, -0.346725, 0, 0.346725, 0.270891, 0, 0, 0, 0.44, -0.12, -0.1, -0.44)
 
 [node name="Mount_Power_Starboard" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.18, 0.92, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 0.9, 0.06)
 
 [node name="Mesh_pwr_batt_liion" parent="Mount_Power_Starboard" instance=ExtResource("7_batt")]
-transform = Transform3D(0.46, 0, 0, 0, 0.46, 0, 0, 0, 0.46, 0.22, -0.08, 0)
+transform = Transform3D(0, 0.4, 0, -0.4, 0, 0, 0, 0, 0.4, -0.01, -0.02, 0)
 visible = false
 
 [node name="Mount_Comms_Antenna" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.42, -0.38)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.08, -0.36)
 
 [node name="Mesh_comm_hga_ka" parent="Mount_Comms_Antenna" instance=ExtResource("8_hga")]
-transform = Transform3D(0.58, 0, 0, 0, 0.551613, 0.17923, 0, -0.17923, 0.551613, 0, 0.02, 0)
+transform = Transform3D(0.5, 0, 0, 0, 0.492404, 0.086824, 0, -0.086824, 0.492404, 0, 0.06, -0.04)
 
 [node name="Mesh_comm_uga_s" parent="Mount_Comms_Antenna" instance=ExtResource("9_omni")]
-transform = Transform3D(0.85, 0, 0, 0, 0.85, 0, 0, 0, 0.85, 0, 0, 0)
+transform = Transform3D(0.72, 0, 0, 0, 0.72, 0, 0, 0, 0.72, -0.62, 0.13, 0.1)
 visible = false
 
 [node name="Mount_Payload_1" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.96, 0.96, 0.76)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.07, 0.42)
 
 [node name="Mesh_pay_drill_trident" parent="Mount_Payload_1" instance=ExtResource("11_drill")]
-transform = Transform3D(0.450534, 0, -0.315467, 0, 0.55, 0, 0.315467, 0, 0.450534, 0.22, -0.06, 0.16)
+transform = Transform3D(0.507434, 0, -0.184691, 0, 0.54, 0, 0.184691, 0, 0.507434, 0, 0, 0)
 
 [node name="Mount_Payload_2" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.96, 0.96, 0.76)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.54, 1.07, 0.42)
 
 [node name="Mesh_pay_spec_msolo" parent="Mount_Payload_2" instance=ExtResource("12_msolo")]
-transform = Transform3D(-0.444306, 0, 0.372817, 0, 0.58, 0, -0.372817, 0, -0.444306, -0.16, -0.04, 0.16)
+transform = Transform3D(0.458725, 0, -0.321203, 0, 0.56, 0, 0.321203, 0, 0.458725, 0, 0, 0)
 visible = false
 
 [node name="Mount_Payload_Top" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.64, 1.42, -0.18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1.07, -0.02)
 
 [node name="Mount_Payload_Side" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.64, 1.42, -0.18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1.07, -0.02)
 
 [node name="Mesh_pay_sar_lband" parent="Mount_Payload_Side" instance=ExtResource("13_sar")]
-transform = Transform3D(0.407839, 0, -0.190178, 0, 0.45, 0, 0.190178, 0, 0.407839, 0.08, 0, 0)
+transform = Transform3D(0.11388, 0, 0.425007, 0, 0.44, 0, -0.425007, 0, 0.11388, 0, 0.01, -0.06)
 
 [node name="Mount_Avionics" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.42, 0.62)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.07, 0.62)
 
 [node name="Mesh_obc_adcs_radhard" parent="Mount_Avionics" instance=ExtResource("10_lidar")]
-transform = Transform3D(-0.48864, 0, 0.177851, 0, 0.52, 0, -0.177851, 0, -0.48864, -0.34, 0, 0.05)
+transform = Transform3D(0.398775, 0, -0.185952, 0, 0.44, 0, 0.185952, 0, 0.398775, -0.28, 0, 0.04)
 
 [node name="Mesh_obc_adcs_cots" parent="Mount_Avionics" instance=ExtResource("10_lidar")]
-transform = Transform3D(-0.48864, 0, 0.177851, 0, 0.52, 0, -0.177851, 0, -0.48864, -0.34, 0, 0.05)
+transform = Transform3D(0.398775, 0, -0.185952, 0, 0.44, 0, 0.185952, 0, 0.398775, -0.28, 0, 0.04)
 visible = false
 
 [node name="Mesh_avionics_lidar_trn" parent="Mount_Avionics" instance=ExtResource("10_lidar")]
-transform = Transform3D(-0.52, 0, 0, 0, 0.440985, 0.275558, 0, 0.275558, -0.440985, 0.34, -0.18, 0.42)
+transform = Transform3D(0.44, 0, 0, 0, 0.418465, -0.135967, 0, 0.135967, 0.418465, 0.24, 0.16, 0.22)
 
 [node name="Mount_Shielding" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.94, -1.14)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.88, 1.24)
 
 [node name="Mesh_shield_heavy" parent="Mount_Shielding" instance=ExtResource("14_shield")]
-transform = Transform3D(0.52, 0, 0, 0, 0, -0.52, 0, 0.26, 0, 0, 0, -0.06)
+transform = Transform3D(0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0.02, 0.18)
 visible = false
