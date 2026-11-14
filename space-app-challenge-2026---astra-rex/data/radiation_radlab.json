@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "source": "NASA OSDR RadLab API (https://visualization.osdr.nasa.gov/radlab/api) & LRO CRaTER",
+    "units": {
+      "gcr_dose_rate": "mSv/day",
+      "spe_peak_flux": "mSv/hour",
+      "shielding_areal_density": "g/cm2"
+    },
+    "mission_dose_limit_msv": 100.0,
+    "nasa_citation": "NASA OSDR RadLab & LRO CRaTER Lunar Radiation Environment"
+  },
+  "environments": {
+    "cislunar_transit": {
+      "gcr_baseline_msv_day": 1.15,
+      "spe_storm_msv_hour": 42.0,
+      "al_shielding_half_value_g_cm2": 6.5
+    },
+    "lunar_south_pole_surface": {
+      "gcr_baseline_msv_day": 0.58,
+      "spe_storm_msv_hour": 21.0,
+      "regolith_shielding_factor": 0.5
+    }
+  }
+}
