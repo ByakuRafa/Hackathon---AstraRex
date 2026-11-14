@@ -7,15 +7,19 @@
     "crater_depth_m": 4200.0,
     "lunar_gravity_m_s2": 1.625,
     "max_safe_landing_slope_deg": 15.0,
-    "nasa_citation": "LRO LOLA DEM (Lunar Orbiter Laser Altimeter) South Pole 20 m/px"
+    "nasa_citation": "LRO LOLA GDR (Lunar Orbiter Laser Altimeter) Polar Stereographic 20 m/px",
+    "source_file": "ldem_85s_20m.jp2",
+    "lola_resolution": "20.0 m/px"
   },
   "dem_bounds": {
-    "grid_width_m": 24000.0,
-    "grid_depth_m": 24000.0,
+    "grid_width_m": 20480.0,
+    "grid_depth_m": 20480.0,
     "resolution_m_per_px": 20.0,
-    "min_elevation_m": -4180.0,
-    "max_elevation_m": 1520.0,
-    "solar_incidence_south_pole_deg": 88.5
+    "min_elevation_m": -2872.5,
+    "max_elevation_m": 1738.5,
+    "solar_incidence_south_pole_deg": 88.5,
+    "total_vertical_amplitude_m": 4611.0,
+    "godot_heightmap_note": "Escalar Y do HeightMapShape3D por total_vertical_amplitude_m e X/Z por resolution_m_per_px. Offset Y no Godot = min_elevation_m"
   },
   "landing_zones": {
     "connecting_ridge_rim": {
