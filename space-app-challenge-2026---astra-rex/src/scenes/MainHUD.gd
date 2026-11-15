@@ -82,6 +82,9 @@ var _last_chip_text: String = ""
 var _preset_pulse_active: bool = false
 var _preset_pulse_sb_1: StyleBoxFlat = null
 var _preset_pulse_sb_2: StyleBoxFlat = null
+var _card_bars: Dictionary = {}
+var _ghost_chips_holder: Node = null
+var _ghost_chips: Dictionary = {}
 
 
 func _ready() -> void:
@@ -92,7 +95,9 @@ func _ready() -> void:
 	_apply_compact_hud_buttons()
 	_bind_tabular_fonts()
 	_setup_power_sparkline()
+	_setup_card_progress_bars()
 	_setup_feedback_chip()
+	_setup_ghost_delta_chips()
 	_connect_ui_signals()
 	_connect_state_signals()
 
@@ -143,6 +148,150 @@ func _setup_power_sparkline() -> void:
 	power_sparkline.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header_row.add_child(power_sparkline)
 	header_row.move_child(power_sparkline, 1)
+
+
+func _setup_card_progress_bars() -> void:
+	var card_map: Dictionary = {
+		"mass": card_mass,
+		"prop": card_propulsion,
+		"power": card_power,
+		"budget": card_budget,
+		"comms": card_comms,
+		"radiation": card_radiation,
+	}
+	for key: String in card_map.keys():
+		var card: PanelContainer = card_map[key] as PanelContainer
+		if not is_instance_valid(card):
+			continue
+		var vbox: VBoxContainer = card.get_node_or_null("VBox") as VBoxContainer
+		if not is_instance_valid(vbox):
+			continue
+		var bar: ProgressBar = ProgressBar.new()
+		bar.name = "MarginProgressBar"
+		bar.custom_minimum_size = Vector2(0.0, 4.0)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.max_value = 1.0
+		bar.step = 0.005
+		bar.value = 0.0
+		bar.show_percentage = false
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		var bg_sb: StyleBoxFlat = StyleBoxFlat.new()
+		bg_sb.bg_color = Color(0.055, 0.086, 0.141, 0.92)
+		bg_sb.set_corner_radius_all(2)
+
+		var fill_sb: StyleBoxFlat = StyleBoxFlat.new()
+		fill_sb.bg_color = COLOR_OK
+		fill_sb.set_corner_radius_all(2)
+
+		bar.add_theme_stylebox_override("background", bg_sb)
+		bar.add_theme_stylebox_override("fill", fill_sb)
+		vbox.add_child(bar)
+		_card_bars[key] = {"bar": bar, "fill": fill_sb}
+
+
+func _update_card_progress_bar(key: String, ratio_01: float, fill_col: Color) -> void:
+	if not _card_bars.has(key):
+		return
+	var entry: Dictionary = _card_bars[key] as Dictionary
+	var bar: ProgressBar = entry.get("bar") as ProgressBar
+	var fill_sb: StyleBoxFlat = entry.get("fill") as StyleBoxFlat
+	if is_instance_valid(bar):
+		bar.value = clampf(ratio_01, 0.0, 1.0)
+	if fill_sb != null:
+		fill_sb.bg_color = fill_col
+
+
+func _setup_ghost_delta_chips() -> void:
+	_ghost_chips_holder = Node.new()
+	_ghost_chips_holder.name = "GhostDeltaChipsHolder"
+	add_child(_ghost_chips_holder)
+	for key: String in ["mass", "prop", "power", "budget"]:
+		var chip: PanelContainer = PanelContainer.new()
+		chip.name = "GhostChip_%s" % key
+		chip.top_level = true
+		chip.z_index = 55
+		chip.visible = false
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lbl: Label = Label.new()
+		lbl.name = "Label"
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lbl.add_theme_font_size_override("font_size", 10)
+		BrandStyle.bind_mono_font(lbl)
+		chip.add_child(lbl)
+		_ghost_chips_holder.add_child(chip)
+		_ghost_chips[key] = {"panel": chip, "label": lbl}
+
+
+func preview_part_deltas(deltas: Dictionary) -> void:
+	if _ghost_chips.is_empty():
+		return
+	var action: String = str(deltas.get("action", ""))
+	if deltas.is_empty() or action.is_empty() or action == "NONE":
+		for key: String in _ghost_chips.keys():
+			var p: PanelContainer = (_ghost_chips[key] as Dictionary).get("panel") as PanelContainer
+			if is_instance_valid(p):
+				p.visible = false
+		return
+
+	var d_mass: float = float(deltas.get("d_mass_kg", 0.0))
+	var d_dv: float = float(deltas.get("d_dv_ms", 0.0))
+	var d_pwr: float = float(deltas.get("d_power_w", 0.0))
+	var d_cost: float = float(deltas.get("d_cost_musd", 0.0))
+	var specs: Dictionary = {
+		"mass": {
+			"show": absf(d_mass) >= 0.5,
+			"text": "%+.0f kg" % d_mass,
+			"col": COLOR_OK if d_mass <= 0.0 else COLOR_WARN,
+			"card": card_mass,
+		},
+		"prop": {
+			"show": absf(d_dv) >= 1.0,
+			"text": "%+.0f m/s" % d_dv,
+			"col": COLOR_ACCENT if d_dv >= 0.0 else COLOR_CRIT,
+			"card": card_propulsion,
+		},
+		"power": {
+			"show": absf(d_pwr) >= 1.0,
+			"text": "%+.0f W" % d_pwr,
+			"col": COLOR_OK if d_pwr >= 0.0 else COLOR_WARN,
+			"card": card_power,
+		},
+		"budget": {
+			"show": absf(d_cost) >= 0.1,
+			"text": "%s$%.1fM" % ["+" if d_cost >= 0.0 else "-", absf(d_cost)],
+			"col": COLOR_OK if d_cost <= 0.0 else COLOR_WARN,
+			"card": card_budget,
+		},
+	}
+
+	for key: String in specs.keys():
+		var info: Dictionary = specs[key] as Dictionary
+		var entry: Dictionary = _ghost_chips[key] as Dictionary
+		var chip: PanelContainer = entry.get("panel") as PanelContainer
+		var lbl: Label = entry.get("label") as Label
+		var card: PanelContainer = info.get("card") as PanelContainer
+		if not is_instance_valid(chip) or not is_instance_valid(lbl) or not is_instance_valid(card):
+			continue
+		if not bool(info.get("show", false)):
+			chip.visible = false
+			continue
+		var col: Color = info["col"] as Color
+		lbl.text = str(info["text"])
+		lbl.add_theme_color_override("font_color", col)
+		var sb: StyleBoxFlat = StyleBoxFlat.new()
+		sb.bg_color = Color(0.031, 0.051, 0.094, 0.95)
+		sb.border_color = col
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
+		sb.content_margin_left = 5.0
+		sb.content_margin_right = 5.0
+		sb.content_margin_top = 1.0
+		sb.content_margin_bottom = 1.0
+		chip.add_theme_stylebox_override("panel", sb)
+		chip.reset_size()
+		chip.global_position = card.global_position + Vector2(maxf(4.0, card.size.x - chip.size.x - 4.0), card.size.y - 4.0)
+		chip.visible = true
 
 
 func _setup_feedback_chip() -> void:
@@ -282,6 +431,7 @@ func mark_phase_completed(phase_index: int) -> void:
 
 
 func set_active_phase(phase_index: int) -> void:
+	preview_part_deltas({})
 	var next_index: int = clampi(phase_index, 0, _phase_buttons.size() - 1)
 	if next_index > _active_phase_index:
 		for i: int in range(next_index):
@@ -296,7 +446,7 @@ func set_active_phase(phase_index: int) -> void:
 		btn.set_pressed_no_signal(is_active)
 
 		if is_active:
-			btn.text = "● %s" % title_str
+			btn.text = "> %s" % title_str
 			var tab_active: StyleBoxFlat = _make_hud_btn_style(
 				Color(0.043, 0.239, 0.569, 0.94),
 				COLOR_NEON_YELLOW,
@@ -307,7 +457,7 @@ func set_active_phase(phase_index: int) -> void:
 			btn.add_theme_color_override("font_color", COLOR_ACCENT)
 			btn.add_theme_color_override("font_pressed_color", COLOR_ACCENT)
 		elif is_completed:
-			btn.text = "✔ %s" % title_str
+			btn.text = "[OK] %s" % title_str
 			var tab_done: StyleBoxFlat = _make_hud_btn_style(
 				Color(0.055, 0.086, 0.141, 0.92),
 				Color(COLOR_OK.r, COLOR_OK.g, COLOR_OK.b, 0.60),
@@ -317,7 +467,7 @@ func set_active_phase(phase_index: int) -> void:
 			btn.add_theme_color_override("font_color", COLOR_OK)
 			btn.remove_theme_color_override("font_pressed_color")
 		else:
-			btn.text = "○ %s" % title_str
+			btn.text = "• %s" % title_str
 			var tab_std: StyleBoxFlat = _make_hud_btn_style(
 				Color(0.055, 0.086, 0.141, 0.92),
 				BrandStyle.BTN_BORDER,
@@ -379,7 +529,7 @@ func _on_state_updated(snap: Dictionary) -> void:
 func _on_simulation_alert(alert_code: String, message: String, citation: String) -> void:
 	var is_warn: bool = alert_code == "DSN_DOWNLINK_BOTTLENECK"
 	var pill_color: Color = COLOR_WARN if is_warn else COLOR_CRIT
-	var prefix: String = "⚠ CAUTION" if is_warn else "✖ FAIL"
+	var prefix: String = "[!] CAUTION" if is_warn else "[X] FAIL"
 	_apply_status_pill("%s • %s" % [prefix, _abbreviate_failure(alert_code)], pill_color)
 	status_badge_label.tooltip_text = "%s\n\n[NASA Reference]\n%s" % [message, citation]
 
@@ -444,38 +594,38 @@ func _emit_telemetry_delta_chip(snap: Dictionary) -> void:
 
 	if absf(d_dl) >= 0.5:
 		show_feedback_chip(
-			"%s Link %+.1f Mbps" % ["✔" if d_dl > 0.0 else "⚠", d_dl],
+			"%s Link %+.1f Mbps" % ["+" if d_dl > 0.0 else "[!]", d_dl],
 			COLOR_OK if d_dl > 0.0 else COLOR_WARN,
 			card_comms
 		)
 	elif absf(d_pwr) >= 15.0:
 		show_feedback_chip(
-			"%s Power %+.0f W" % ["✔" if d_pwr > 0.0 else "⚠", d_pwr],
+			"%s Power %+.0f W" % ["+" if d_pwr > 0.0 else "[!]", d_pwr],
 			COLOR_OK if d_pwr > 0.0 else COLOR_WARN,
 			card_power
 		)
 	elif absf(d_dv) >= 5.0:
 		show_feedback_chip(
-			"%s Δv %+.0f m/s" % ["✔" if d_dv > 0.0 else "⚠", d_dv],
+			"%s Δv %+.0f m/s" % ["+" if d_dv > 0.0 else "[!]", d_dv],
 			COLOR_OK if d_dv > 0.0 else COLOR_WARN,
 			card_propulsion
 		)
 	elif absf(d_mass) >= 0.5:
 		show_feedback_chip(
-			"%s Mass %+.0f kg" % ["⚠" if d_mass > 0.0 else "✔", d_mass],
+			"%s Mass %+.0f kg" % ["[!]" if d_mass > 0.0 else "+", d_mass],
 			COLOR_WARN if d_mass > 0.0 else COLOR_OK,
 			card_mass
 		)
 	elif absf(d_cost) >= 0.1:
 		var sign_str: String = "+" if d_cost > 0.0 else "-"
 		show_feedback_chip(
-			"%s Cost %s$%.0fM" % ["⚠" if d_cost > 0.0 else "✔", sign_str, absf(d_cost)],
+			"%s Cost %s$%.0fM" % ["[!]" if d_cost > 0.0 else "+", sign_str, absf(d_cost)],
 			COLOR_WARN if d_cost > 0.0 else COLOR_OK,
 			card_budget
 		)
 	elif absf(d_rad) >= 0.1:
 		show_feedback_chip(
-			"%s Rad %+.1f mSv" % ["⚠" if d_rad > 0.0 else "✔", d_rad],
+			"%s Rad %+.1f mSv" % ["[!]" if d_rad > 0.0 else "+", d_rad],
 			COLOR_WARN if d_rad > 0.0 else COLOR_OK,
 			card_radiation
 		)
@@ -483,7 +633,7 @@ func _emit_telemetry_delta_chip(snap: Dictionary) -> void:
 
 func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> void:
 	if failure_code == "NOMINAL":
-		var label_str: String = "✔ NOMINAL" if eng else "✔ PASS • READY"
+		var label_str: String = "[OK] NOMINAL" if eng else "[OK] PASS • READY"
 		_apply_status_pill(label_str, COLOR_OK)
 		status_badge_label.tooltip_text = (
 			"Mission Status: NOMINAL (PASS)\n"
@@ -492,10 +642,10 @@ func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> 
 			+ "[NASA Reference]\nNASA SP-2016-6105 Rev2 Systems Engineering Constraints"
 		)
 	elif failure_code == "DSN_DOWNLINK_BOTTLENECK":
-		_apply_status_pill("⚠ CAUTION • COMMS", COLOR_WARN)
+		_apply_status_pill("[!] CAUTION • COMMS", COLOR_WARN)
 	else:
 		var short_code: String = _abbreviate_failure(failure_code)
-		_apply_status_pill("✖ FAIL • %s" % short_code, COLOR_CRIT)
+		_apply_status_pill("[X] FAIL • %s" % short_code, COLOR_CRIT)
 
 
 func _abbreviate_failure(code: String) -> String:
@@ -552,12 +702,15 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		mass_sub_label.text = "Dry %.0f kg  •  +%.0f%% MGA" % [mf_dry, mga_pct]
 	else:
 		mass_value_label.text = "%.0f kg" % m0_wet
-		mass_sub_label.text = "%s  •  %.0f kg" % ["✔ MARGIN" if mass_ok else "✖ OVERLOAD", max_tli]
+		mass_sub_label.text = "%s  •  %.0f kg" % ["[OK] MARGIN" if mass_ok else "[X] OVERLOAD", max_tli]
 
 	mass_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mass_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mass_value_label.add_theme_color_override("font_color", COLOR_ACCENT if mass_ok else COLOR_CRIT)
 	_apply_card_style(card_mass, border_col, bg_col)
+	var mass_ratio: float = clampf(m0_wet / maxf(max_tli, 1.0), 0.0, 1.0)
+	var mass_bar_col: Color = COLOR_CRIT if not mass_ok else (COLOR_WARN if mass_ratio >= 0.85 else COLOR_OK)
+	_update_card_progress_bar("mass", mass_ratio, mass_bar_col)
 
 	var citation: String = str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
 	card_mass.tooltip_text = (
@@ -587,11 +740,11 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 
 	if not tw_ok:
 		prop_value_label.text = "T/W %.2f (<1)" % tw
-		prop_sub_label.text = ("✖ LOCKOUT  •  %.0f m/s" % dv) if eng else "✖ THRUST DEFICIT"
+		prop_sub_label.text = ("[X] LOCKOUT  •  %.0f m/s" % dv) if eng else "[X] THRUST DEFICIT"
 		prop_value_label.add_theme_color_override("font_color", COLOR_CRIT)
 	elif not dv_ok:
 		prop_value_label.text = "%.0f / %.0f m/s" % [dv, req_dv]
-		prop_sub_label.text = ("⚠ DV LOW  •  T/W %.2f" % tw) if eng else ("⚠ Δv SHORT  •  %.2f" % tw)
+		prop_sub_label.text = ("[!] DV LOW  •  T/W %.2f" % tw) if eng else ("[!] Δv SHORT  •  %.2f" % tw)
 		prop_value_label.add_theme_color_override("font_color", COLOR_WARN)
 	else:
 		if eng:
@@ -599,12 +752,15 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 			prop_sub_label.text = "T/W %.2f  •  %.1f kN" % [tw, thrust_n / 1000.0]
 		else:
 			prop_value_label.text = "%.0f m/s" % dv
-			prop_sub_label.text = "✔ SAFE T/W  •  %.2f" % tw
+			prop_sub_label.text = "[OK] SAFE T/W  •  %.2f" % tw
 		prop_value_label.add_theme_color_override("font_color", COLOR_ACCENT)
 
 	prop_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	prop_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_apply_card_style(card_propulsion, border_col, bg_col)
+	var dv_ratio: float = clampf(dv / maxf(req_dv, 1.0), 0.0, 1.0)
+	var prop_bar_col: Color = COLOR_CRIT if not tw_ok else (COLOR_WARN if (not dv_ok or dv < req_dv * 1.10) else COLOR_OK)
+	_update_card_progress_bar("prop", dv_ratio, prop_bar_col)
 
 	var orb_citation: String = str(orbit.get("nasa_citation", "NASA SP-2016-6105 Rev2 Sec 4.4"))
 	card_propulsion.tooltip_text = (
@@ -634,7 +790,7 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 		power_value_label.text = "%+.0f W" % net_p
 		power_sub_label.text = "%.0f/%.0f W  •  %.1f kWh" % [p_gen, p_use, batt_wh / 1000.0]
 	else:
-		var p_state: String = "✔ POSITIVE" if (power_ok and night_ok) else ("✖ BLACKOUT" if not power_ok else "⚠ NIGHT DRAIN")
+		var p_state: String = "[OK] POSITIVE" if (power_ok and night_ok) else ("[X] BLACKOUT" if not power_ok else "[!] NIGHT DRAIN")
 		power_value_label.text = "%+.0f W" % net_p
 		power_sub_label.text = "%s  •  %.0f kWh" % [p_state, batt_wh / 1000.0]
 
@@ -642,6 +798,9 @@ func _update_power_card(snap: Dictionary, zone: Dictionary, eng: bool) -> void:
 	power_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	power_value_label.add_theme_color_override("font_color", COLOR_ACCENT if power_ok else COLOR_CRIT)
 	_apply_card_style(card_power, border_col, bg_col)
+	var pwr_ratio: float = clampf(0.65 + (net_p / maxf(p_use * 1.5, 150.0)) * 0.35, 0.05, 1.0) if power_ok else clampf(p_gen / maxf(p_use, 1.0) * 0.65, 0.05, 0.64)
+	var pwr_bar_col: Color = COLOR_CRIT if not power_ok else (COLOR_WARN if not night_ok else COLOR_OK)
+	_update_card_progress_bar("power", pwr_ratio, pwr_bar_col)
 
 	if is_instance_valid(power_sparkline):
 		var sp_col: Color = COLOR_OK if (power_ok and night_ok) else (COLOR_CRIT if not power_ok else COLOR_WARN)
@@ -673,7 +832,7 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 		budget_value_label.text = "$%.0fM / $%.0fM" % [total_cost, cap_musd]
 		budget_sub_label.text = "LV $%.0fM  •  Sub $%.0fM" % [lv_cost, sub_cost]
 	else:
-		var badge: String = "SANDBOX CAP" if is_sandbox else ("✔ WITHIN CAP" if budget_ok else "✖ OVER BUDGET")
+		var badge: String = "SANDBOX CAP" if is_sandbox else ("[OK] WITHIN CAP" if budget_ok else "[X] OVER BUDGET")
 		budget_value_label.text = "$%.0fM" % total_cost
 		budget_sub_label.text = "%s  •  $%.0fM" % [badge, cap_musd]
 
@@ -681,6 +840,9 @@ func _update_budget_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 	budget_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	budget_value_label.add_theme_color_override("font_color", COLOR_ACCENT if budget_ok else COLOR_CRIT)
 	_apply_card_style(card_budget, border_col, bg_col)
+	var cost_ratio: float = clampf(total_cost / maxf(cap_musd, 1.0), 0.0, 1.0)
+	var cost_bar_col: Color = COLOR_CRIT if not budget_ok else (COLOR_WARN if ((not is_sandbox) and cost_ratio >= 0.85) else COLOR_OK)
+	_update_card_progress_bar("budget", cost_ratio, cost_bar_col)
 
 	card_budget.tooltip_text = (
 		"Lifecycle Mission Cost Cap (M$ USD)\n"
@@ -708,12 +870,15 @@ func _update_comms_card(snap: Dictionary, orbit: Dictionary, zone: Dictionary, e
 		comms_sub_label.text = "%.0f Mbps  •  DTE %.0f%%" % [dl_mbps, dte_pct]
 	else:
 		comms_value_label.text = "%.1f Mbps" % dl_mbps
-		comms_sub_label.text = "%s  •  %.0f pts" % ["✔ LINK OK" if comms_ok else "⚠ BOTTLENECK", sci_eff]
+		comms_sub_label.text = "%s  •  %.0f pts" % ["[OK] LINK OK" if comms_ok else "[!] BOTTLENECK", sci_eff]
 
 	comms_value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	comms_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	comms_value_label.add_theme_color_override("font_color", COLOR_ACCENT if comms_ok else COLOR_WARN)
 	_apply_card_style(card_comms, border_col, bg_col)
+	var comms_ratio: float = 0.0 if dl_mbps <= 0.0 else clampf(dl_cap / maxf(data_gen * 1.25, 1.0), 0.05, 1.0)
+	var comms_bar_col: Color = COLOR_OK if comms_ok else COLOR_WARN
+	_update_card_progress_bar("comms", comms_ratio, comms_bar_col)
 
 	card_comms.tooltip_text = (
 		"Deep Space Network (DSN) Direct-to-Earth Link Budget\n"
@@ -742,7 +907,7 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 		rad_value_label.text = "%.0f d  •  %.0f mSv" % [life_days, dose_msv]
 		rad_sub_label.text = "%.1f g/cm²  •  %.0f krad" % [shield_g, tol_krad]
 	else:
-		var badge: String = "✔ RAD SAFE" if rad_ok else ("✖ RAD HAZARD" if life_days <= 0.0 else "⚠ SHORT LIFE")
+		var badge: String = "[OK] RAD SAFE" if rad_ok else ("[X] RAD HAZARD" if life_days <= 0.0 else "[!] SHORT LIFE")
 		rad_value_label.text = "%.0f d" % life_days
 		rad_sub_label.text = "%s  •  %.0f mSv" % [badge, dose_msv]
 
@@ -750,6 +915,9 @@ func _update_radiation_card(snap: Dictionary, eng: bool) -> void:
 	rad_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	rad_value_label.add_theme_color_override("font_color", COLOR_ACCENT if rad_ok else (COLOR_CRIT if life_days <= 0.0 else COLOR_WARN))
 	_apply_card_style(card_radiation, border_col, bg_col)
+	var rad_ratio: float = clampf(dose_msv / maxf(dose_limit, 1.0), 0.0, 1.0)
+	var rad_bar_col: Color = COLOR_CRIT if (life_days <= 0.0 or dose_msv > dose_limit) else (COLOR_WARN if (not rad_ok or dose_msv >= dose_limit * 0.75) else COLOR_OK)
+	_update_card_progress_bar("radiation", rad_ratio, rad_bar_col)
 
 	card_radiation.tooltip_text = (
 		"OSDR RadLab Dose & Operational Surface Lifetime\n"
@@ -770,6 +938,6 @@ func _apply_card_style(card: PanelContainer, border_col: Color, bg_col: Color) -
 	style.set_corner_radius_all(4)
 	style.content_margin_left = 8.0
 	style.content_margin_right = 8.0
-	style.content_margin_top = 3.0
-	style.content_margin_bottom = 3.0
+	style.content_margin_top = 2.0
+	style.content_margin_bottom = 2.0
 	card.add_theme_stylebox_override("panel", style)

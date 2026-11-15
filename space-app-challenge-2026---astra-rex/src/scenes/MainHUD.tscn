@@ -62,7 +62,7 @@ custom_minimum_size = Vector2(126, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "● 1. Formulation"
+text = "> 1. Formulation"
 
 [node name="BtnPhase2" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
@@ -70,7 +70,7 @@ custom_minimum_size = Vector2(98, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "○ 2. 3D VAB"
+text = "• 2. 3D VAB"
 
 [node name="BtnPhase3" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
@@ -78,7 +78,7 @@ custom_minimum_size = Vector2(114, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "○ 3. Lunar Sim"
+text = "• 3. Lunar Sim"
 
 [node name="BtnPhase4" type="Button" parent="RootVBox/TopControlRow/PhaseTabsGroup"]
 unique_name_in_owner = true
@@ -86,7 +86,7 @@ custom_minimum_size = Vector2(138, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "○ 4. Pareto Debrief"
+text = "• 4. Pareto Debrief"
 
 [node name="Spacer" type="Control" parent="RootVBox/TopControlRow"]
 layout_mode = 2
@@ -125,7 +125,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardMass"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardMass/VBox"]
 layout_mode = 2
@@ -159,7 +159,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPropulsion"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardPropulsion/VBox"]
 layout_mode = 2
@@ -193,7 +193,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardPower"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardPower/VBox"]
 layout_mode = 2
@@ -227,7 +227,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardBudget"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardBudget/VBox"]
 layout_mode = 2
@@ -261,7 +261,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardComms"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardComms/VBox"]
 layout_mode = 2
@@ -295,7 +295,7 @@ size_flags_horizontal = 3
 
 [node name="VBox" type="VBoxContainer" parent="RootVBox/TelemetryRow/CardRadiation"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
 
 [node name="HeaderRow" type="HBoxContainer" parent="RootVBox/TelemetryRow/CardRadiation/VBox"]
 layout_mode = 2

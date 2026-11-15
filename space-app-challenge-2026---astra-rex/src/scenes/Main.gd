@@ -244,7 +244,7 @@ func _setup_skip_button() -> void:
 	btn_skip_debrief.name = "BtnSkipToDebrief"
 	btn_skip_debrief.focus_mode = Control.FOCUS_NONE
 	btn_skip_debrief.custom_minimum_size = Vector2(68, 26)
-	btn_skip_debrief.text = "Skip ⏭"
+	btn_skip_debrief.text = "Skip >>"
 	btn_skip_debrief.tooltip_text = "Skip directly to Phase 4: Pareto Optimization & Engineering Debrief using active MissionState."
 	btn_skip_debrief.add_theme_font_size_override("font_size", 12)
 	btn_skip_debrief.visible = false
@@ -463,33 +463,33 @@ func _on_mission_state_updated(snap: Dictionary) -> void:
 	if not bool(land.get("can_land", false)):
 		var reason: String = str(land.get("reason", "LANDING_LOCKOUT"))
 		if engineer_mode:
-			system_status_badge.text = "✖ LOCKOUT: %s | T/W %.2f | dV %.0f m/s" % [reason, tw, dv]
+			system_status_badge.text = "[X] LOCKOUT: %s | T/W %.2f | dV %.0f m/s" % [reason, tw, dv]
 		else:
 			var student_reason: String = "THRUST DEFICIT" if reason == "CRITICAL_THRUST_DEFICIT" else ("DV SHORTFALL" if reason == "PROPELLANT_DV_SHORTFALL" else "NO DESCENT ENGINE")
-			system_status_badge.text = "✖ FAIL • %s" % student_reason
+			system_status_badge.text = "[X] FAIL • %s" % student_reason
 		system_status_badge.add_theme_color_override("font_color", COL_RED)
 		system_status_badge.tooltip_text = "%s (%s)" % [str(land.get("message", "")), str(land.get("citation", "NASA SP-2016-6105"))]
 	elif not bool(compat.get("compatible", false)):
 		if engineer_mode:
-			system_status_badge.text = "✖ CRITICAL • m0 %.0f / %.0f kg | $%.0fM" % [m0, float(compat.get("max_tli_mass_kg", 0.0)), float(snap.get("total_cost_musd", 0.0))]
+			system_status_badge.text = "[X] CRITICAL • m0 %.0f / %.0f kg | $%.0fM" % [m0, float(compat.get("max_tli_mass_kg", 0.0)), float(snap.get("total_cost_musd", 0.0))]
 		else:
-			system_status_badge.text = "✖ FAIL • TLI MASS OR BUDGET EXCEEDED"
+			system_status_badge.text = "[X] FAIL • TLI MASS OR BUDGET EXCEEDED"
 		system_status_badge.add_theme_color_override("font_color", COL_RED)
 		var reasons: Array = compat.get("reasons", []) as Array
 		system_status_badge.tooltip_text = str(reasons[0]) if not reasons.is_empty() else "Launcher / Budget constraint violated."
 	elif net_w < 0.0 or not night_ok or not trn_ok:
 		var warn_tag: String = "NO TRN (>15 deg)" if not trn_ok else ("LUNAR NIGHT RISK" if not night_ok else "POWER DEFICIT")
 		if engineer_mode:
-			system_status_badge.text = "⚠ CAUTION • %s | Pnet %+.0f W" % [warn_tag, net_w]
+			system_status_badge.text = "[!] CAUTION • %s | Pnet %+.0f W" % [warn_tag, net_w]
 		else:
-			system_status_badge.text = "⚠ CAUTION • %s" % warn_tag
+			system_status_badge.text = "[!] CAUTION • %s" % warn_tag
 		system_status_badge.add_theme_color_override("font_color", COL_AMBER)
 		system_status_badge.tooltip_text = "Mission compatible with launcher, but surface hazards or power shortfalls remain."
 	else:
 		if engineer_mode:
-			system_status_badge.text = "✔ SIR APPROVED • T/W %.2f | dV %.0f m/s | %.0f kg" % [tw, dv, m0]
+			system_status_badge.text = "[OK] SIR APPROVED • T/W %.2f | dV %.0f m/s | %.0f kg" % [tw, dv, m0]
 		else:
-			system_status_badge.text = "✔ SIR APPROVED • PASS (SAFE T/W & MARGIN)"
+			system_status_badge.text = "[OK] SIR APPROVED • PASS (SAFE T/W & MARGIN)"
 		system_status_badge.add_theme_color_override("font_color", COL_EMERALD)
 		system_status_badge.tooltip_text = "System Integration Review (SIR) Approved: All launch, orbital Delta-V, lunar T/W, and night survival checks nominal (NASA SP-2016-6105 Rev2)."
 
@@ -500,7 +500,7 @@ func _on_copy_design_code_pressed() -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.clipboard_set(code)
 	play_sfx("vab_snap")
-	system_status_badge.text = "✔ DESIGN CODE COPIED (%d chars)" % code.length()
+	system_status_badge.text = "[OK] DESIGN CODE COPIED (%d chars)" % code.length()
 	system_status_badge.add_theme_color_override("font_color", COL_CYAN)
 
 
@@ -508,13 +508,13 @@ func _on_load_design_code_pressed() -> void:
 	var code: String = bottom_design_code_edit.text.strip_edges()
 	if code.is_empty():
 		play_sfx("spe_alarm")
-		system_status_badge.text = "⚠ CAUTION • PASTE A DESIGN CODE FIRST"
+		system_status_badge.text = "[!] CAUTION • PASTE A DESIGN CODE FIRST"
 		system_status_badge.add_theme_color_override("font_color", COL_AMBER)
 		return
 	var ok: bool = MissionState.import_design_code(code)
 	if not ok:
 		play_sfx("spe_alarm")
-		system_status_badge.text = "✖ FAIL • INVALID DESIGN CODE"
+		system_status_badge.text = "[X] FAIL • INVALID DESIGN CODE"
 		system_status_badge.add_theme_color_override("font_color", COL_RED)
 	else:
 		_idle_seconds = 0.0
@@ -540,5 +540,5 @@ func _on_export_json_pressed() -> void:
 
 
 func _on_report_exported(file_path_or_name: String, fmt: String) -> void:
-	system_status_badge.text = "✔ EXPORTED %s -> %s" % [fmt.to_upper(), file_path_or_name]
+	system_status_badge.text = "[OK] EXPORTED %s -> %s" % [fmt.to_upper(), file_path_or_name]
 	system_status_badge.add_theme_color_override("font_color", COL_EMERALD)

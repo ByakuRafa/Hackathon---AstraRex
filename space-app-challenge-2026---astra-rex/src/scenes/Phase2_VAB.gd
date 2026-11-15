@@ -108,7 +108,7 @@ var _auto_turntable: bool = false
 
 
 func _ready() -> void:
-	_enforce_double_sided_materials(vab_world)
+	LanderChassis.apply_webgl_aerospace_materials(vab_world)
 	_style_panels()
 	_style_cta_button()
 	BrandStyle.bind_mono_font(hover_delta_label)
@@ -123,34 +123,6 @@ func _ready() -> void:
 
 	_latest_slots = lander_chassis.get_active_slot_records()
 	_refresh_equipped_states(MissionState.get_telemetry_snapshot())
-
-
-func _enforce_double_sided_materials(root_node: Node) -> void:
-	if not is_instance_valid(root_node):
-		return
-	if root_node is MeshInstance3D:
-		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
-		if mesh_inst.material_override is BaseMaterial3D:
-			var dup_override: BaseMaterial3D = (mesh_inst.material_override as BaseMaterial3D).duplicate() as BaseMaterial3D
-			dup_override.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mesh_inst.material_override = dup_override
-		if mesh_inst.mesh != null:
-			var surf_count: int = mesh_inst.mesh.get_surface_count()
-			for surface_idx: int in range(surf_count):
-				var active_mat: Material = mesh_inst.get_active_material(surface_idx)
-				if active_mat is BaseMaterial3D:
-					var dup: BaseMaterial3D = (active_mat as BaseMaterial3D).duplicate() as BaseMaterial3D
-					dup.cull_mode = BaseMaterial3D.CULL_DISABLED
-					mesh_inst.set_surface_override_material(surface_idx, dup)
-				elif active_mat == null:
-					var fallback_mat: StandardMaterial3D = StandardMaterial3D.new()
-					fallback_mat.albedo_color = Color(0.76, 0.78, 0.82, 1.0)
-					fallback_mat.metallic = 0.2
-					fallback_mat.roughness = 0.55
-					fallback_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-					mesh_inst.set_surface_override_material(surface_idx, fallback_mat)
-	for child: Node in root_node.get_children():
-		_enforce_double_sided_materials(child)
 
 
 func _process(delta: float) -> void:
@@ -314,9 +286,23 @@ func _create_part_card_button(part_data: Dictionary, snap: Dictionary) -> Button
 	BrandStyle.bind_mono_font(btn)
 	btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	btn.tooltip_text = _build_part_tooltip(part_data)
+	var badge_lbl: Label = Label.new()
+	badge_lbl.name = "MountedBadge"
+	badge_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge_lbl.anchor_left = 1.0
+	badge_lbl.anchor_right = 1.0
+	badge_lbl.offset_left = -86.0
+	badge_lbl.offset_right = -10.0
+	badge_lbl.offset_top = 6.0
+	badge_lbl.offset_bottom = 22.0
+	badge_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	badge_lbl.add_theme_font_size_override("font_size", 10)
+	BrandStyle.bind_mono_font(badge_lbl)
+	btn.add_child(badge_lbl)
 	_update_part_card_text(btn, part_data, snap)
 	btn.pressed.connect(_on_part_card_pressed.bind(part_id))
 	btn.mouse_entered.connect(_on_part_hovered.bind(part_id))
+	btn.mouse_exited.connect(_on_part_hover_exited.bind(part_id))
 	btn.focus_entered.connect(_on_part_hovered.bind(part_id))
 	_part_buttons[part_id] = btn
 	return btn
@@ -324,11 +310,27 @@ func _create_part_card_button(part_data: Dictionary, snap: Dictionary) -> Button
 
 func _update_part_card_text(btn: Button, part_data: Dictionary, snap: Dictionary) -> void:
 	var part_id: String = str(part_data.get("id", ""))
+	var eng: bool = bool(snap.get("engineer_mode", false))
 	var short_name: String = str(PART_SHORT_NAMES.get(part_id, part_data.get("name", part_id)))
-	var stat_line: String = _format_compact_stat_line(part_data)
-	var deltas: Dictionary = _compute_part_trade_deltas(part_data, snap)
-	var badge: String = _format_compact_delta_badge(deltas)
-	btn.text = "%s\n%s | %s" % [short_name, stat_line, badge]
+	var stat_line: String = _format_compact_stat_line(part_data, eng)
+	btn.text = "%s\n%s" % [short_name, stat_line]
+
+	var badge_lbl: Label = btn.get_node_or_null("MountedBadge") as Label
+	if is_instance_valid(badge_lbl):
+		var raw_ids: Array = snap.get("subsystem_ids", []) as Array
+		var is_core: bool = (part_id == "chassis_clps")
+		var is_on: bool = is_core or raw_ids.has(part_id)
+		if is_core:
+			badge_lbl.text = "[CORE]"
+			badge_lbl.add_theme_color_override("font_color", COLOR_ACCENT)
+			badge_lbl.visible = true
+		elif is_on:
+			badge_lbl.text = "[MOUNTED]"
+			badge_lbl.add_theme_color_override("font_color", COLOR_OK)
+			badge_lbl.visible = true
+		else:
+			badge_lbl.text = ""
+			badge_lbl.visible = false
 
 
 func _eval_part_list_metrics(part_ids: Array[String]) -> Dictionary:
@@ -466,8 +468,9 @@ func _on_part_hovered(part_id: String) -> void:
 	var action: String = str(deltas.get("action", "EQUIP"))
 	var short_name: String = str(PART_SHORT_NAMES.get(part_id, part_data.get("name", part_id)))
 	if action == "CORE":
-		hover_delta_label.text = "[CORE] %s is the permanent structural spacecraft bus." % short_name
+		hover_delta_label.text = "[CORE] %s (permanent structural bus)" % short_name
 		hover_delta_label.add_theme_color_override("font_color", COLOR_ACCENT)
+		_push_hud_ghost_deltas({})
 		return
 
 	var d_mass: float = float(deltas.get("d_mass_kg", 0.0))
@@ -475,12 +478,29 @@ func _on_part_hovered(part_id: String) -> void:
 	var d_pwr: float = float(deltas.get("d_power_w", 0.0))
 	var d_cost: float = float(deltas.get("d_cost_musd", 0.0))
 	var cost_sign: String = "+" if d_cost >= 0.0 else "-"
-	hover_delta_label.text = "[%s %s] Mass %+.1f kg | Δv %+.0f m/s | Pwr %+.0f W | Cost %s$%.1fM" % [
-		action, short_name, d_mass, d_dv, d_pwr, cost_sign, absf(d_cost)
+	hover_delta_label.text = "[%s] ΔMass %+.0f kg • Δv %+.0f m/s • ΔPwr %+.0f W • ΔCost %s$%.1fM" % [
+		action, d_mass, d_dv, d_pwr, cost_sign, absf(d_cost)
 	]
 	var is_caution: bool = (action == "REMOVE") or (d_dv < -50.0) or (d_pwr < -20.0) or (d_mass > 50.0)
-	var col: Color = COLOR_WARN if is_caution else COLOR_ACCENT
+	var col: Color = COLOR_WARN if is_caution else COLOR_OK
 	hover_delta_label.add_theme_color_override("font_color", col)
+	_push_hud_ghost_deltas(deltas)
+
+
+func _on_part_hover_exited(part_id: String) -> void:
+	if _hovered_part_id == part_id:
+		_hovered_part_id = ""
+		_push_hud_ghost_deltas({})
+
+
+func _push_hud_ghost_deltas(deltas: Dictionary) -> void:
+	if not is_inside_tree():
+		return
+	var shell: Node = get_tree().get_first_node_in_group("main_shell")
+	if is_instance_valid(shell) and shell.get("main_hud") != null:
+		var hud: Node = shell.get("main_hud") as Node
+		if is_instance_valid(hud) and hud.has_method("preview_part_deltas"):
+			hud.call("preview_part_deltas", deltas)
 
 
 func _is_category_equipped(cat_id: String) -> bool:
@@ -559,7 +579,7 @@ func _sync_diegetic_pin_styles() -> void:
 		var is_equipped: bool = _is_category_equipped(cat_id)
 		btn.set_meta("is_empty_slot", not is_equipped)
 		btn.set_meta("is_selected_slot", is_selected)
-		btn.text = ("● %s" if is_equipped else "◌ %s") % base_label
+		btn.text = ("+ %s" if is_equipped else "- %s") % base_label
 
 		var sb: StyleBoxFlat = StyleBoxFlat.new()
 		if is_equipped:
@@ -592,6 +612,7 @@ func _update_diegetic_pins() -> void:
 		area_size = Vector2(920.0, 520.0)
 	var overlay_origin: Vector2 = diegetic_pin_overlay.global_position
 
+	var visible_pins: Array[Dictionary] = []
 	for pin_rec: Dictionary in _diegetic_pins:
 		var btn: Button = pin_rec["button"] as Button
 		var marker: Marker3D = pin_rec.get("marker_node") as Marker3D
@@ -609,38 +630,95 @@ func _update_diegetic_pins() -> void:
 		var local_pos: Vector2 = screen_pos - overlay_origin
 		var clamped_x: float = clampf(local_pos.x - btn.size.x * 0.5, 8.0, maxf(8.0, area_size.x - btn.size.x - 8.0))
 		var clamped_y: float = clampf(local_pos.y - btn.size.y * 0.5, 8.0, maxf(8.0, area_size.y - btn.size.y - 8.0))
-		btn.position = Vector2(clamped_x, clamped_y)
+		visible_pins.append({
+			"btn": btn,
+			"pos": Vector2(clamped_x, clamped_y),
+		})
+
+	# Enforce >= 28px vertical screen-space separation when pins horizontally overlap
+	visible_pins.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return (a["pos"] as Vector2).y < (b["pos"] as Vector2).y
+	)
+	var max_y_limit: float = maxf(8.0, area_size.y - 30.0)
+	for _pass: int in range(5):
+		for i: int in range(visible_pins.size()):
+			var pi: Vector2 = visible_pins[i]["pos"] as Vector2
+			for j: int in range(i + 1, visible_pins.size()):
+				var pj: Vector2 = visible_pins[j]["pos"] as Vector2
+				if absf(pi.x - pj.x) < 72.0:
+					var dy: float = pj.y - pi.y
+					if dy < 28.0:
+						var push: float = (28.0 - dy) * 0.5
+						pi.y = clampf(pi.y - push, 8.0, max_y_limit)
+						pj.y = clampf(pj.y + push, 8.0, max_y_limit)
+						if pj.y - pi.y < 28.0:
+							pj.y = minf(max_y_limit, pi.y + 28.0)
+						visible_pins[i]["pos"] = pi
+						visible_pins[j]["pos"] = pj
+
+	for vp: Dictionary in visible_pins:
+		var btn: Button = vp["btn"] as Button
+		btn.position = vp["pos"] as Vector2
 		btn.visible = true
 
 
-func _format_compact_stat_line(part_data: Dictionary) -> String:
+func _format_compact_stat_line(part_data: Dictionary, eng: bool = false) -> String:
 	var mass_kg: float = float(part_data.get("mass_dry_kg", 0.0))
 	var cost_m: float = float(part_data.get("cost_m_usd", 0.0))
+	var mga_pct: float = float(part_data.get("mga_percent", 0.15)) * 100.0
 	var cat: String = str(part_data.get("subsystem", ""))
 
 	match cat:
+		"bus":
+			if eng:
+				return "%.0f kg (+%.0f%% MGA)  •  %+.0f W  •  $%.0fM" % [mass_kg, mga_pct, float(part_data.get("power_w", 0.0)), cost_m]
+			return "Core Frame  •  %.0f kg  •  $%.0fM" % [mass_kg, cost_m]
 		"propulsion":
 			var thrust_n: float = float(part_data.get("thrust_n", 0.0))
+			var isp_s: float = float(part_data.get("isp_s", 0.0))
 			var thrust_str: String = ("%.1f kN" % (thrust_n / 1000.0)) if thrust_n >= 100.0 else ("%.2f N" % thrust_n)
-			return "%.0fkg %s $%.0fM" % [mass_kg, thrust_str, cost_m]
+			if eng:
+				return "%.0f kg  •  %s  •  %.0f s  •  $%.1fM" % [mass_kg, thrust_str, isp_s, cost_m]
+			return "%.0f kg  •  %s  •  $%.0fM" % [mass_kg, thrust_str, cost_m]
 		"power":
 			var kwh: float = float(part_data.get("energy_capacity_kwh", 0.0))
 			if kwh > 0.0:
-				return "%.0fkg %.0fkWh $%.0fM" % [mass_kg, kwh, cost_m]
-			return "%.0fkg %+.0fW $%.0fM" % [mass_kg, float(part_data.get("power_w", 0.0)), cost_m]
+				if eng:
+					return "%.0f kg  •  %.0f kWh  •  %.0f%% MGA  •  $%.0fM" % [mass_kg, kwh, mga_pct, cost_m]
+				return "%.0f kWh Storage  •  %.0f kg  •  $%.0fM" % [kwh, mass_kg, cost_m]
+			var pwr: float = float(part_data.get("power_w", 0.0))
+			if eng:
+				return "%.0f kg  •  %+.0f W  •  %.0f%% MGA  •  $%.1fM" % [mass_kg, pwr, mga_pct, cost_m]
+			var pwr_tag: String = "PSR Heat" if not bool(part_data.get("requires_sunlight", false)) else "Sunlight"
+			return "%+.0f W (%s)  •  $%.0fM" % [pwr, pwr_tag, cost_m]
 		"comms":
-			return "%.0fkg %.1fMbps $%.0fM" % [mass_kg, float(part_data.get("data_rate_mbps", 0.0)), cost_m]
+			var mbps: float = float(part_data.get("data_rate_mbps", 0.0))
+			if eng:
+				return "%.1f kg  •  %.1f Mbps  •  %+.0f W  •  $%.1fM" % [mass_kg, mbps, float(part_data.get("power_w", 0.0)), cost_m]
+			return "%.1f Mbps Link  •  %.0f kg  •  $%.0fM" % [mbps, mass_kg, cost_m]
 		"avionics":
 			var slope: float = float(part_data.get("max_safe_slope_deg", 0.0))
 			if slope > 0.0:
-				return "%.0fkg %.0fdeg $%.0fM" % [mass_kg, slope, cost_m]
-			return "%.0fkg %.0fkr $%.0fM" % [mass_kg, float(part_data.get("radiation_tolerance_krad", 0.0)), cost_m]
+				if eng:
+					return "%.1f kg  •  <=%.0f deg  •  %+.0f W  •  $%.0fM" % [mass_kg, slope, float(part_data.get("power_w", 0.0)), cost_m]
+				return "Safe Slope <=%.0f°  •  %.0f kg  •  $%.0fM" % [slope, mass_kg, cost_m]
+			var krad: float = float(part_data.get("radiation_tolerance_krad", 0.0))
+			if eng:
+				return "%.1f kg  •  %.0f krad  •  %+.0f W  •  $%.1fM" % [mass_kg, krad, float(part_data.get("power_w", 0.0)), cost_m]
+			return "%.0f krad OBC  •  %.1f kg  •  $%.1fM" % [krad, mass_kg, cost_m]
 		"payload":
-			return "%.0fkg +%.0fSci $%.0fM" % [mass_kg, float(part_data.get("science_points", 0.0)), cost_m]
+			var sci: float = float(part_data.get("science_points", 0.0))
+			var gb_d: float = float(part_data.get("data_rate_gb_day", 0.0))
+			if eng:
+				return "%.0f kg  •  +%.0f Sci  •  %.1f GB/d  •  $%.1fM" % [mass_kg, sci, gb_d, cost_m]
+			return "+%.0f Science  •  %.0f kg  •  $%.0fM" % [sci, mass_kg, cost_m]
 		"shielding":
-			return "%.0fkg %.0fg/cm2 $%.0fM" % [mass_kg, float(part_data.get("shielding_g_cm2", 0.0)), cost_m]
+			var gcm2: float = float(part_data.get("shielding_g_cm2", 0.0))
+			if eng:
+				return "%.0f kg  •  %.0f g/cm2  •  %.0f%% MGA  •  $%.1fM" % [mass_kg, gcm2, mga_pct, cost_m]
+			return "%.0f g/cm2 Armor  •  %.0f kg  •  $%.1fM" % [gcm2, mass_kg, cost_m]
 
-	return "%.0fkg %+.0fW $%.0fM" % [mass_kg, float(part_data.get("power_w", 0.0)), cost_m]
+	return "%.0f kg  •  %+.0f W  •  $%.0fM" % [mass_kg, float(part_data.get("power_w", 0.0)), cost_m]
 
 
 func _build_part_tooltip(part_data: Dictionary) -> String:
@@ -767,7 +845,7 @@ func _update_trade_summary(snap: Dictionary) -> void:
 	var life_d: float = float(snap.get("mission_lifetime_days", 0.0))
 	var fail_code: String = str(snap.get("failure_code", "NOMINAL"))
 
-	var status_sym: String = "✔" if fail_code == "NOMINAL" else ("⚠" if fail_code == "DSN_DOWNLINK_BOTTLENECK" else "✖")
+	var status_sym: String = "[OK]" if fail_code == "NOMINAL" else ("[!]" if fail_code == "DSN_DOWNLINK_BOTTLENECK" else "[X]")
 	var status_color: Color = COLOR_OK if fail_code == "NOMINAL" else (COLOR_WARN if fail_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT)
 	if eng:
 		trade_summary_label.text = "%s %d Mounted  •  T/W %.2f  •  Δv %.0f/%.0f m/s  •  m0 %.0f kg  •  %s" % [

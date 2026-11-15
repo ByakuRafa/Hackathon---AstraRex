@@ -40,6 +40,12 @@ const ZONE_SHORT_NAMES: Dictionary = {
 	"crater_floor_psr": "Shackleton Floor (PSR)"
 }
 
+const ZONE_STUDENT_TAGS: Dictionary = {
+	"connecting_ridge_rim": "Sunlit Safe",
+	"inner_wall_hazard": "TRN Req",
+	"crater_floor_psr": "Ice / Dark"
+}
+
 const LV_SHORT_NAMES: Dictionary = {
 	"sls_block1": "SLS Block 1",
 	"falcon_heavy_clps": "Falcon Heavy CLPS",
@@ -47,9 +53,21 @@ const LV_SHORT_NAMES: Dictionary = {
 	"falcon_9_clps": "Falcon 9 Block 5"
 }
 
+const LV_STUDENT_TAGS: Dictionary = {
+	"sls_block1": "Super-Heavy",
+	"falcon_heavy_clps": "Heavy Lift",
+	"vulcan_centaur_vc6": "Commercial",
+	"falcon_9_clps": "Medium CLPS"
+}
+
 const ORBIT_SHORT_NAMES: Dictionary = {
 	"orbit_llo_polar": "LLO 100 km Polar",
 	"orbit_nrho_gateway": "NRHO Gateway L2"
+}
+
+const ORBIT_STUDENT_TAGS: Dictionary = {
+	"orbit_llo_polar": "Low Fuel",
+	"orbit_nrho_gateway": "Full Comms"
 }
 
 const ROLE_DEFS: Array[Dictionary] = [
@@ -377,11 +395,24 @@ func _refresh_ui(snap: Dictionary) -> void:
 		var btn: Button = _obj_buttons[obj_key] as Button
 		btn.set_pressed_no_signal(obj_key == sel_obj)
 
+	var eng: bool = bool(snap.get("engineer_mode", false))
+	var zones: Dictionary = NasaDataLoader.get_all_landing_zones()
 	var sel_zone: String = str(snap.get("landing_zone_id", ""))
 	for z_key_var: Variant in _zone_buttons.keys():
 		var z_key: String = str(z_key_var)
 		var btn: Button = _zone_buttons[z_key] as Button
 		btn.set_pressed_no_signal(z_key == sel_zone)
+		if zones.has(z_key):
+			var z_dict: Dictionary = zones[z_key] as Dictionary
+			var z_short: String = str(ZONE_SHORT_NAMES.get(z_key, z_dict.get("label", z_key)))
+			var z_slope: float = float(z_dict.get("mean_slope_deg", 0.0))
+			var z_sun: float = float(z_dict.get("solar_illumination_percent", 0.0))
+			var z_sci: float = float(z_dict.get("science_multiplier", 1.0))
+			if eng:
+				btn.text = "%s\n%.1f°  •  %.0f%% Sun  •  x%.2f Sci" % [z_short, z_slope, z_sun, z_sci]
+			else:
+				var z_tag: String = str(ZONE_STUDENT_TAGS.get(z_key, "Polar"))
+				btn.text = "%s (%s)\n%.1f° Slope  •  %.0f%% Sun" % [z_short, z_tag, z_slope, z_sun]
 
 	var t_size: int = int(snap.get("team_size", 1))
 	for i: int in range(_team_size_buttons.size()):
@@ -402,12 +433,35 @@ func _refresh_ui(snap: Dictionary) -> void:
 		var lv_key: String = str(lv_key_var)
 		var lv_btn: Button = _lv_buttons[lv_key] as Button
 		lv_btn.set_pressed_no_signal(lv_key == sel_lv)
+		var lv_dict: Dictionary = NasaDataLoader.get_launch_vehicle(lv_key)
+		if not lv_dict.is_empty():
+			var lv_short: String = str(LV_SHORT_NAMES.get(lv_key, lv_dict.get("name", lv_key)))
+			var lv_cap: float = float(lv_dict.get("max_tli_payload_kg", 0.0))
+			var lv_cost: float = float(lv_dict.get("cost_m_usd", 0.0))
+			var lv_fairing: float = float(lv_dict.get("fairing_diameter_m", 5.2))
+			var lv_rel: float = float(lv_dict.get("reliability", 0.98)) * 100.0
+			if eng:
+				lv_btn.text = "%s\n%.0f kg  •  $%.0fM  •  %.1fm  •  %.0f%%" % [lv_short, lv_cap, lv_cost, lv_fairing, lv_rel]
+			else:
+				var lv_tag: String = str(LV_STUDENT_TAGS.get(lv_key, "Launch"))
+				lv_btn.text = "%s (%s)\n%.0f kg Cap  •  $%.0fM" % [lv_short, lv_tag, lv_cap, lv_cost]
 
 	var sel_orb: String = str(snap.get("orbit_id", ""))
 	for orb_key_var: Variant in _orbit_buttons.keys():
 		var orb_key: String = str(orb_key_var)
 		var orb_btn: Button = _orbit_buttons[orb_key] as Button
 		orb_btn.set_pressed_no_signal(orb_key == sel_orb)
+		var orb_dict: Dictionary = NasaDataLoader.get_orbit(orb_key)
+		if not orb_dict.is_empty():
+			var orb_short: String = str(ORBIT_SHORT_NAMES.get(orb_key, orb_dict.get("name", orb_key)))
+			var orb_dv: float = float(orb_dict.get("delta_v_descent_m_s", 1750.0))
+			var orb_dte: float = float(orb_dict.get("dte_visibility_percent", 50.0))
+			var orb_period: float = float(orb_dict.get("orbital_period_hours", 1.97))
+			if eng:
+				orb_btn.text = "%s\n%.0f m/s  •  %.0f%% DTE  •  %.1f h" % [orb_short, orb_dv, orb_dte, orb_period]
+			else:
+				var orb_tag: String = str(ORBIT_STUDENT_TAGS.get(orb_key, "Orbit"))
+				orb_btn.text = "%s (%s)\n%.0f m/s Δv  •  %.0f%% DTE" % [orb_short, orb_tag, orb_dv, orb_dte]
 
 	_update_launch_vehicle_check(snap)
 
@@ -462,9 +516,9 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 
 	var pill_color: Color = COLOR_OK if compat else COLOR_CRIT
 	if eng:
-		check_status_banner.text = "✔ PASS • COMPATIBLE" if compat else "✖ FAIL • INCOMPATIBLE"
+		check_status_banner.text = "[OK] PASS • COMPATIBLE" if compat else "[X] FAIL • INCOMPATIBLE"
 	else:
-		check_status_banner.text = "✔ PASS • READY FOR LAUNCH" if compat else "✖ FAIL • FIX DESIGN WARNINGS"
+		check_status_banner.text = "[OK] PASS • READY FOR LAUNCH" if compat else "[X] FAIL • FIX DESIGN WARNINGS"
 	check_status_banner.add_theme_color_override("font_color", COLOR_WHITE)
 
 	var pill: StyleBoxFlat = StyleBoxFlat.new()
@@ -491,28 +545,28 @@ func _update_launch_vehicle_check(snap: Dictionary) -> void:
 
 	var lbl_mass: Label = _check_labels["mass"] as Label
 	if eng:
-		lbl_mass.text = "%s %.0f / %.0f kg" % ["✔" if mass_ok else "✖", m0_wet, max_tli]
+		lbl_mass.text = "%s %.0f / %.0f kg" % ["[OK]" if mass_ok else "[X]", m0_wet, max_tli]
 	else:
-		lbl_mass.text = "%.0f kg (%s)" % [m0_wet, "✔ MARGIN" if mass_ok else "✖ OVERLOAD"]
+		lbl_mass.text = "%.0f kg (%s)" % [m0_wet, "[OK] MARGIN" if mass_ok else "[X] OVERLOAD"]
 	lbl_mass.add_theme_color_override("font_color", COLOR_OK if mass_ok else COLOR_CRIT)
 
 	var lbl_dv: Label = _check_labels["dv"] as Label
-	lbl_dv.text = ("%s %.0f / %.0f m/s" % ["✔" if dv_ok else "⚠", dv, req_dv]) if eng else ("%.0f m/s (%s)" % [dv, "✔ OK" if dv_ok else "⚠ SHORT"])
+	lbl_dv.text = ("%s %.0f / %.0f m/s" % ["[OK]" if dv_ok else "[!]", dv, req_dv]) if eng else ("%.0f m/s (%s)" % [dv, "[OK]" if dv_ok else "[!] SHORT"])
 	lbl_dv.add_theme_color_override("font_color", COLOR_OK if dv_ok else COLOR_WARN)
 
 	var lbl_tw: Label = _check_labels["tw"] as Label
 	if eng:
-		lbl_tw.text = "%.2f (%s)" % [tw, "✔ T/W >= 1.0" if tw_ok else "✖ < 1.0 LOCKOUT"]
+		lbl_tw.text = "%.2f (%s)" % [tw, "[OK] T/W >= 1.0" if tw_ok else "[X] < 1.0 LOCKOUT"]
 	else:
-		lbl_tw.text = "✔ SAFE LANDING T/W" if tw_ok else "✖ THRUST DEFICIT"
+		lbl_tw.text = "[OK] SAFE LANDING T/W" if tw_ok else "[X] THRUST DEFICIT"
 	lbl_tw.add_theme_color_override("font_color", COLOR_OK if tw_ok else COLOR_CRIT)
 
 	var lbl_dte: Label = _check_labels["dte"] as Label
-	lbl_dte.text = "%s %.0f%%" % ["✔" if dte_pct >= 35.0 else "⚠", dte_pct]
+	lbl_dte.text = "%s %.0f%%" % ["[OK]" if dte_pct >= 35.0 else "[!]", dte_pct]
 	lbl_dte.add_theme_color_override("font_color", COLOR_OK if dte_pct >= 35.0 else COLOR_WARN)
 
 	var lbl_cost: Label = _check_labels["cost"] as Label
-	lbl_cost.text = "%s $%.0fM / $%.0fM" % ["✔" if budget_ok else "✖", cost, cap]
+	lbl_cost.text = "%s $%.0fM / $%.0fM" % ["[OK]" if budget_ok else "[X]", cost, cap]
 	lbl_cost.add_theme_color_override("font_color", COLOR_OK if budget_ok else COLOR_CRIT)
 
 	var lv_info: Dictionary = NasaDataLoader.get_launch_vehicle(str(snap.get("launch_vehicle_id", "")))

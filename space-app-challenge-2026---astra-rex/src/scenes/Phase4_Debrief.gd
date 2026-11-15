@@ -203,7 +203,7 @@ func _render_primary_status_card(report: Dictionary) -> void:
 	var primary_diag: Dictionary = report.get("primary_diagnosis", {}) as Dictionary
 
 	var pill_col: Color = COLOR_OK if is_nominal else (COLOR_WARN if status_code == "DSN_DOWNLINK_BOTTLENECK" else COLOR_CRIT)
-	var pill_text: String = "✔ PASS • NOMINAL" if is_nominal else ("⚠ CAUTION • %s" % status_code if status_code == "DSN_DOWNLINK_BOTTLENECK" else "✖ FAIL • %s" % status_code)
+	var pill_text: String = "[OK] PASS • NOMINAL" if is_nominal else ("[!] CAUTION • %s" % status_code if status_code == "DSN_DOWNLINK_BOTTLENECK" else "[X] FAIL • %s" % status_code)
 	_apply_status_pill(pill_text, pill_col)
 
 	primary_title_label.text = str(primary_diag.get("title", "Mission Engineering Review"))
@@ -225,7 +225,7 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 	var bottlenecks: Array = report.get("all_bottlenecks", []) as Array
 	if bottlenecks.is_empty():
 		var opt_row: Label = _make_action_row(
-			"✔ PASS • All SI constraints satisfied. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
+			"[OK] PASS • All SI constraints satisfied. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
 			COLOR_OK,
 			"All NASA SP-2016-6105, JPL DE441, LRO LOLA, and OSDR RadLab envelopes satisfied."
 		)
@@ -235,7 +235,7 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 	for b_var: Variant in bottlenecks:
 		var b: Dictionary = b_var as Dictionary
 		var is_warn: bool = str(b.get("code", "")) == "DSN_DOWNLINK_BOTTLENECK"
-		var b_sym: String = "⚠" if is_warn else "✖"
+		var b_sym: String = "[!]" if is_warn else "[X]"
 		var row_text: String = "%s [%s] %s" % [b_sym, str(b.get("code", "")), str(b.get("recommendation", ""))]
 		var tip: String = (
 			"%s\nCause: %s\n\nPhysics:\n%s\n\n[NASA Citation]\n%s"
@@ -374,23 +374,44 @@ func sync_engineer_mode(eng: bool) -> void:
 func _add_grid_header(title: String) -> void:
 	var lbl: Label = Label.new()
 	lbl.text = title
-	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_font_size_override("font_size", 11)
 	lbl.add_theme_color_override("font_color", COLOR_MUTED)
+	var hdr_sb: StyleBoxFlat = StyleBoxFlat.new()
+	hdr_sb.bg_color = Color(0.035, 0.055, 0.095, 0.92)
+	hdr_sb.border_color = BrandStyle.PANEL_BORDER
+	hdr_sb.border_width_bottom = 1
+	hdr_sb.content_margin_left = 8
+	hdr_sb.content_margin_right = 8
+	hdr_sb.content_margin_top = 3
+	hdr_sb.content_margin_bottom = 3
+	lbl.add_theme_stylebox_override("normal", hdr_sb)
 	benchmark_grid.add_child(lbl)
 
 
 func _add_grid_row(metric: String, val_str: String, delta_str: String, col: Color) -> void:
+	@warning_ignore("integer_division")
+	var row_idx: int = maxi(0, (benchmark_grid.get_child_count() - 3) / 3)
+	var row_bg_col: Color = Color("#16233A") if (row_idx % 2 == 0) else Color("#0E1624")
+	var row_sb: StyleBoxFlat = StyleBoxFlat.new()
+	row_sb.bg_color = row_bg_col
+	row_sb.content_margin_left = 8
+	row_sb.content_margin_right = 8
+	row_sb.content_margin_top = 3
+	row_sb.content_margin_bottom = 3
+
 	var m_lbl: Label = Label.new()
 	m_lbl.text = metric
 	m_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	m_lbl.add_theme_font_size_override("font_size", 12)
 	m_lbl.add_theme_color_override("font_color", COLOR_MUTED)
+	m_lbl.add_theme_stylebox_override("normal", row_sb)
 
 	var v_lbl: Label = Label.new()
 	v_lbl.text = val_str
 	v_lbl.add_theme_font_size_override("font_size", 12)
 	v_lbl.add_theme_color_override("font_color", COLOR_WHITE)
 	BrandStyle.bind_mono_font(v_lbl)
+	v_lbl.add_theme_stylebox_override("normal", row_sb)
 
 	var d_lbl: Label = Label.new()
 	d_lbl.text = delta_str
@@ -398,6 +419,7 @@ func _add_grid_row(metric: String, val_str: String, delta_str: String, col: Colo
 	d_lbl.add_theme_font_size_override("font_size", 12)
 	d_lbl.add_theme_color_override("font_color", col)
 	BrandStyle.bind_mono_font(d_lbl)
+	d_lbl.add_theme_stylebox_override("normal", row_sb)
 
 	benchmark_grid.add_child(m_lbl)
 	benchmark_grid.add_child(v_lbl)

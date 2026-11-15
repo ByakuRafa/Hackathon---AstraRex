@@ -154,19 +154,18 @@ func _draw() -> void:
 		var is_feas: bool = bool(pt.get("feasible", false))
 		draw_circle(pos, 2.8 if is_feas else 2.0, COLOR_FEASIBLE_DOT if is_feas else COLOR_INFEASIBLE_DOT)
 
-	# 2. Connected Pareto-Optimal Frontier sorted by active X metric
+	# 2. Connected Pareto-Optimal Frontier (strictly monotonic 2D upper-left envelope)
 	if not pareto_frontier.is_empty():
-		var sorted_frontier: Array[Dictionary] = pareto_frontier.duplicate()
-		sorted_frontier.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-			var ax: float = _get_x_value(a)
-			var bx: float = _get_x_value(b)
-			if is_equal_approx(ax, bx):
-				return _get_y_value(a) < _get_y_value(b)
-			return ax < bx
-		)
+		var env_data: Dictionary = compute_2d_upper_envelope(pareto_frontier)
+		var env_pts: Array[Dictionary] = env_data["envelope"] as Array[Dictionary]
+		var dom_pts: Array[Dictionary] = env_data["dominated"] as Array[Dictionary]
+
+		for d_pt: Dictionary in dom_pts:
+			var d_pos: Vector2 = _to_screen(_get_x_value(d_pt), _get_y_value(d_pt), plot_rect)
+			draw_circle(d_pos, 2.8, COLOR_FEASIBLE_DOT)
 
 		var poly: PackedVector2Array = PackedVector2Array()
-		for pt: Dictionary in sorted_frontier:
+		for pt: Dictionary in env_pts:
 			poly.append(_to_screen(_get_x_value(pt), _get_y_value(pt), plot_rect))
 		if poly.size() > 1:
 			draw_polyline(poly, COLOR_PARETO_LINE, 2.5, true)
@@ -208,6 +207,36 @@ func _draw() -> void:
 		draw_string(font, p_pos + p_label_off, "Your Lander", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, p_col)
 
 	_draw_legend(plot_rect, font)
+
+
+func compute_2d_upper_envelope(points: Array[Dictionary]) -> Dictionary:
+	var sorted_pts: Array[Dictionary] = points.duplicate()
+	sorted_pts.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ax: float = _get_x_value(a)
+		var bx: float = _get_x_value(b)
+		if is_equal_approx(ax, bx):
+			return _get_y_value(a) > _get_y_value(b)
+		return ax < bx
+	)
+
+	var envelope: Array[Dictionary] = []
+	var dominated: Array[Dictionary] = []
+	var max_y_so_far: float = -INF
+	var last_x_so_far: float = -INF
+	for pt: Dictionary in sorted_pts:
+		var px: float = _get_x_value(pt)
+		var py: float = _get_y_value(pt)
+		if envelope.is_empty():
+			envelope.append(pt)
+			last_x_so_far = px
+			max_y_so_far = py
+		elif (px > last_x_so_far + 0.001) and (py > max_y_so_far + 0.001):
+			envelope.append(pt)
+			last_x_so_far = px
+			max_y_so_far = py
+		else:
+			dominated.append(pt)
+	return {"envelope": envelope, "dominated": dominated}
 
 
 func _draw_grid_and_axes(plot_rect: Rect2, font: Font, mono_font: Font) -> void:

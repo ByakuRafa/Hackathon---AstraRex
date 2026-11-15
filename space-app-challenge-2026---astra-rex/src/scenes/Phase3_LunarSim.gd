@@ -135,7 +135,7 @@ var _debrief_highlight_pulse: float = 0.0
 func _ready() -> void:
 	_style_panels()
 	_bind_tabular_telemetry_fonts()
-	_enforce_double_sided_materials(lunar_world)
+	LanderChassis.apply_webgl_aerospace_materials(lander_chassis)
 	_build_shackleton_terrain()
 	_build_zone_markers()
 	_setup_raycast_exceptions()
@@ -182,31 +182,6 @@ func _set_sim_loop_sfx(sfx_name: String, active: bool) -> void:
 	var shell: Node = get_tree().get_first_node_in_group("main_shell")
 	if is_instance_valid(shell) and shell.has_method("set_loop_sfx"):
 		shell.call("set_loop_sfx", sfx_name, active)
-
-
-func _enforce_double_sided_materials(root_node: Node) -> void:
-	if not is_instance_valid(root_node):
-		return
-	if root_node == terrain_mesh or root_node == thruster_plume:
-		return
-	if root_node is MeshInstance3D:
-		var mesh_inst: MeshInstance3D = root_node as MeshInstance3D
-		if mesh_inst.material_override is BaseMaterial3D:
-			var override_dup: BaseMaterial3D = (mesh_inst.material_override as BaseMaterial3D).duplicate() as BaseMaterial3D
-			override_dup.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mesh_inst.material_override = override_dup
-		elif mesh_inst.mesh != null:
-			var surf_count: int = mesh_inst.mesh.get_surface_count()
-			for surface_idx: int in range(surf_count):
-				var mat: Material = mesh_inst.get_active_material(surface_idx)
-				if mat == null:
-					mat = mesh_inst.mesh.surface_get_material(surface_idx)
-				if mat is BaseMaterial3D:
-					var dup: BaseMaterial3D = (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
-					dup.cull_mode = BaseMaterial3D.CULL_DISABLED
-					mesh_inst.set_surface_override_material(surface_idx, dup)
-	for child: Node in root_node.get_children():
-		_enforce_double_sided_materials(child)
 
 
 func set_lunar_sim_active(active: bool) -> void:
@@ -278,7 +253,7 @@ func _physics_process(delta: float) -> void:
 			_lander_vel_y = 0.0
 			_update_plume_visual(false, 0.0)
 			_play_sim_sfx("spe_alarm")
-			_apply_status_pill("✖ FAIL: T/W < 1.0 — Insufficient Thrust", COLOR_CRIT)
+			_apply_status_pill("[X] FAIL: T/W < 1.0 — Insufficient Thrust", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			_refresh_ui_labels()
 			descent_completed.emit(false)
@@ -298,7 +273,7 @@ func _physics_process(delta: float) -> void:
 			_lander_vel_y = 0.0
 			_update_plume_visual(false, 0.0)
 			_play_sim_sfx("spe_alarm")
-			_apply_status_pill("✖ FAIL: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
+			_apply_status_pill("[X] FAIL: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			descent_completed.emit(false)
 		_refresh_ui_labels()
@@ -308,7 +283,7 @@ func _physics_process(delta: float) -> void:
 	if MissionState.selected_landing_zone_id == "inner_wall_hazard" and MissionState.has_lidar_trn and agl_m < 13.0:
 		if not _trn_divert_applied:
 			_trn_divert_applied = true
-			_apply_status_pill("✔ TRN ACTIVE: Diverting to <15° Pad", COLOR_ACCENT)
+			_apply_status_pill("[OK] TRN ACTIVE: Diverting to <15° Pad", COLOR_ACCENT)
 		# Lateral hazard avoidance micro-divert
 		lander_pivot.position.x = lerpf(lander_pivot.position.x, target_xz.x - 1.4, delta * 2.4)
 		lander_pivot.position.z = lerpf(lander_pivot.position.z, target_xz.y + 0.8, delta * 2.4)
@@ -365,19 +340,19 @@ func _on_touchdown() -> void:
 			_sim_phase = SimPhase.LANDED_NOMINAL
 			lander_pivot.rotation_degrees = Vector3.ZERO
 			_play_sim_sfx("touchdown_confirm")
-			_apply_status_pill("✔ PASS: TRN Touchdown (11.8° <= 15°)", COLOR_OK)
+			_apply_status_pill("[OK] PASS: TRN Touchdown (11.8° <= 15°)", COLOR_OK)
 		else:
 			_touchdown_slope_deg = maxf(zone_mean_slope, sampled_slope)
 			_sim_phase = SimPhase.LANDED_TIPOVER
 			_tipover_target_roll_deg = 58.0
 			_play_sim_sfx("spe_alarm")
-			_apply_status_pill("✖ FAIL: SLOPE TIP-OVER (>15° NO TRN)", COLOR_CRIT)
+			_apply_status_pill("[X] FAIL: SLOPE TIP-OVER (>15° NO TRN)", COLOR_CRIT)
 	else:
 		_touchdown_slope_deg = zone_mean_slope if sampled_slope < 2.0 else clampf(sampled_slope, 1.0, 14.5)
 		_sim_phase = SimPhase.LANDED_NOMINAL
 		lander_pivot.rotation_degrees = Vector3.ZERO
 		_play_sim_sfx("touchdown_confirm")
-		_apply_status_pill("✔ NOMINAL • TOUCHDOWN & SURFACE OPS", COLOR_OK)
+		_apply_status_pill("[OK] NOMINAL • TOUCHDOWN & SURFACE OPS", COLOR_OK)
 
 	MissionState.record_touchdown_slope(_touchdown_slope_deg)
 	_perform_celestial_raycasts()
@@ -404,9 +379,9 @@ func start_or_restart_descent() -> void:
 
 	var can_land_info: Dictionary = MissionState.can_safely_land_on_moon()
 	if bool(can_land_info.get("can_land", false)):
-		_apply_status_pill("✔ PID TERMINAL DESCENT ACTIVE", COLOR_ACCENT)
+		_apply_status_pill("[OK] PID TERMINAL DESCENT ACTIVE", COLOR_ACCENT)
 	else:
-		_apply_status_pill("⚠ CAUTION: %s" % str(can_land_info.get("reason", "LOCKOUT")), COLOR_WARN)
+		_apply_status_pill("[!] CAUTION: %s" % str(can_land_info.get("reason", "LOCKOUT")), COLOR_WARN)
 
 	camera_pivot.position = Vector3(target_xz.x, ground_y + 2.5, target_xz.y)
 	_update_zone_marker_highlights()
@@ -585,14 +560,18 @@ func _build_zone_markers() -> void:
 
 		var ring: MeshInstance3D = MeshInstance3D.new()
 		var torus: TorusMesh = TorusMesh.new()
-		torus.inner_radius = 1.6
-		torus.outer_radius = 2.05
+		torus.inner_radius = 1.80
+		torus.outer_radius = 1.98
+		torus.rings = 32
+		torus.ring_segments = 16
 		ring.mesh = torus
-		ring.position = Vector3(xz.x, y_val + 0.18, xz.y)
+		ring.position = Vector3(xz.x, y_val + 0.14, xz.y)
 
 		var mat: StandardMaterial3D = StandardMaterial3D.new()
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.albedo_color = COLOR_ACCENT
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mat.albedo_color = Color(COLOR_ACCENT.r, COLOR_ACCENT.g, COLOR_ACCENT.b, 0.32)
 		ring.material_override = mat
 
 		zone_markers_root.add_child(ring)
@@ -610,13 +589,14 @@ func _update_zone_marker_highlights() -> void:
 			continue
 		var mat: StandardMaterial3D = ring.material_override as StandardMaterial3D
 		if zone_id == active_id:
-			ring.scale = Vector3(1.25, 1.25, 1.25)
+			ring.scale = Vector3(1.15, 1.0, 1.15)
 			if mat != null:
-				mat.albedo_color = COLOR_WARN if zone_id == "inner_wall_hazard" else COLOR_OK
+				var base_c: Color = COLOR_WARN if zone_id == "inner_wall_hazard" else COLOR_OK
+				mat.albedo_color = Color(base_c.r, base_c.g, base_c.b, 0.32)
 		else:
-			ring.scale = Vector3(0.85, 0.85, 0.85)
+			ring.scale = Vector3(0.85, 1.0, 0.85)
 			if mat != null:
-				mat.albedo_color = Color(0.45, 0.55, 0.68, 0.65)
+				mat.albedo_color = Color(0.45, 0.55, 0.68, 0.20)
 
 
 func _setup_raycast_exceptions() -> void:
@@ -875,15 +855,20 @@ func _refresh_ui_labels() -> void:
 		telemetry_vel_label.text = "Vel: %+.1f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
 	telemetry_slope_label.text = "Slope: %.1f°  •  TRN %s" % [_touchdown_slope_deg, "ON" if MissionState.has_lidar_trn else "OFF"]
 
-	var solar_prefix: String = "✔ " if MissionState.net_power_w >= 0.0 else "✖ "
-	var solar_state: String = ("SHADOW (PSR)" if _solar_occluded else "SUNLIT (1.8°)") if eng else ("POWER POSITIVE" if MissionState.net_power_w >= 0.0 else "SOLAR BLACKOUT")
-	telemetry_solar_label.text = "%s%s  •  %+.0f W" % [solar_prefix, ("Solar: %s" % solar_state) if eng else solar_state, MissionState.net_power_w]
-	telemetry_solar_label.add_theme_color_override("font_color", COLOR_OK if MissionState.net_power_w >= 0.0 else COLOR_CRIT)
+	var solar_ok: bool = MissionState.net_power_w >= 0.0
+	var solar_prefix: String = "[OK] " if solar_ok else "[X] "
+	var solar_state: String = ("SHADOW (PSR)" if _solar_occluded else "SUNLIT (1.8°)") if eng else ("POWER POSITIVE" if solar_ok else "SOLAR BLACKOUT")
+	telemetry_solar_label.text = "%s%s  •  %+.0f W" % [solar_prefix, ("POWER: %s" % solar_state) if eng else ("POWER: %s" % solar_state), MissionState.net_power_w]
+	var solar_col: Color = COLOR_OK if solar_ok else COLOR_CRIT
+	telemetry_solar_label.add_theme_color_override("font_color", solar_col)
+	_apply_env_pill_style(telemetry_solar_label, solar_col)
 
-	var dte_prefix: String = "⚠ " if _dte_occluded else "✔ "
+	var dte_prefix: String = "[!] " if _dte_occluded else "[OK] "
 	var dte_state: String = "OCCLUDED" if _dte_occluded else ("NRHO RELAY" if MissionState.orbit_id_is_nrho() and zone_id == "crater_floor_psr" else "DTE CLEAR")
-	telemetry_dte_label.text = "%sDSN: %s (%.0f%%)" % [dte_prefix, dte_state, MissionState.dte_visibility_pct]
-	telemetry_dte_label.add_theme_color_override("font_color", COLOR_WARN if _dte_occluded else COLOR_WHITE)
+	telemetry_dte_label.text = "%sDSN COMMS: %s (%.0f%%)" % [dte_prefix, dte_state, MissionState.dte_visibility_pct]
+	var dte_col: Color = COLOR_WARN if _dte_occluded else COLOR_ACCENT
+	telemetry_dte_label.add_theme_color_override("font_color", COLOR_WHITE)
+	_apply_env_pill_style(telemetry_dte_label, dte_col)
 
 	var cum_rad_msv: float = MissionState.total_mission_dose_msv
 	if _elapsed_surface_days > 0.0:
@@ -891,16 +876,19 @@ func _refresh_ui_labels() -> void:
 	var rad_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
 	var rad_flag: String = "SPE STORM" if _spe_active else ("SAFE" if _safe_mode_active else "GCR")
 	var rad_hazard: bool = (cum_rad_msv > rad_limit) or (_spe_active and not MissionState.has_radhard_obc)
-	var rad_prefix: String = "✖ " if rad_hazard else ("⚠ " if _spe_active else "✔ ")
+	var rad_prefix: String = "[X] " if rad_hazard else ("[!] " if _spe_active else "[OK] ")
 	if eng:
-		telemetry_rad_label.text = "%sRad (%s): %.1f / %.0f mSv" % [rad_prefix, rad_flag, cum_rad_msv, rad_limit]
+		telemetry_rad_label.text = "%sRADIATION (%s): %.1f / %.0f mSv" % [rad_prefix, rad_flag, cum_rad_msv, rad_limit]
 	else:
-		telemetry_rad_label.text = "%s%s (%s): %.0f mSv" % [rad_prefix, "RAD HAZARD" if rad_hazard else "RAD SAFE", rad_flag, cum_rad_msv]
-	telemetry_rad_label.add_theme_color_override("font_color", COLOR_CRIT if rad_hazard else (COLOR_WARN if _spe_active else COLOR_OK))
+		telemetry_rad_label.text = "%sRADIATION: %s (%.0f mSv)" % [rad_prefix, "HAZARD" if rad_hazard else "SAFE", cum_rad_msv]
+	var rad_col: Color = COLOR_CRIT if rad_hazard else (COLOR_WARN if _spe_active else COLOR_OK)
+	telemetry_rad_label.add_theme_color_override("font_color", rad_col)
+	_apply_env_pill_style(telemetry_rad_label, rad_col)
 
 	var op_life: float = MissionState.mission_lifetime_days
 	var ops_status: String = "ALIVE" if (_sim_phase == SimPhase.LANDED_NOMINAL and _elapsed_surface_days <= op_life) else ("OFFLINE" if _elapsed_surface_days > op_life else "ACTIVE")
-	telemetry_day_label.text = "Surface Day %.0f / %.0f d  •  %s" % [_elapsed_surface_days, op_life, ops_status]
+	telemetry_day_label.text = "SURFACE DAY %.0f / %.0f d  •  %s" % [_elapsed_surface_days, op_life, ops_status]
+	_apply_env_pill_style(telemetry_day_label, COLOR_OK if ops_status != "OFFLINE" else COLOR_CRIT)
 
 	# Populate NASA citations in tooltips
 	telemetry_solar_label.tooltip_text = (
@@ -945,9 +933,39 @@ func _apply_status_pill(text_val: String, pill_color: Color) -> void:
 	sim_status_pill.add_theme_stylebox_override("normal", pill)
 
 
+func _apply_env_pill_style(lbl: Label, border_col: Color) -> void:
+	if not is_instance_valid(lbl):
+		return
+	var pill: StyleBoxFlat = StyleBoxFlat.new()
+	pill.bg_color = Color(border_col.r * 0.12 + 0.03, border_col.g * 0.12 + 0.04, border_col.b * 0.12 + 0.07, 0.85)
+	pill.border_color = border_col
+	pill.set_border_width_all(1)
+	pill.border_width_left = 3
+	pill.set_corner_radius_all(3)
+	pill.content_margin_left = 8.0
+	pill.content_margin_right = 6.0
+	pill.content_margin_top = 2.0
+	pill.content_margin_bottom = 2.0
+	lbl.add_theme_stylebox_override("normal", pill)
+
+
 func _style_panels() -> void:
 	BrandStyle.apply_panel_style(left_panel, 14.0, 12.0, 12.0)
 	BrandStyle.apply_panel_style(bottom_bar, 12.0, 8.0, 8.0)
+
+	var hint_lbl: Label = get_node_or_null("UILayout/CenterViewportArea/CameraBar/HintLabel") as Label
+	if is_instance_valid(hint_lbl):
+		var hint_pill: StyleBoxFlat = StyleBoxFlat.new()
+		hint_pill.bg_color = Color(0.055, 0.086, 0.141, 0.85) # #0E1624D9
+		hint_pill.border_color = Color(0.20, 0.27, 0.38, 0.85)
+		hint_pill.set_border_width_all(1)
+		hint_pill.set_corner_radius_all(10)
+		hint_pill.content_margin_left = 10.0
+		hint_pill.content_margin_right = 10.0
+		hint_pill.content_margin_top = 3.0
+		hint_pill.content_margin_bottom = 3.0
+		hint_lbl.add_theme_stylebox_override("normal", hint_pill)
+		hint_lbl.add_theme_color_override("font_color", COLOR_WHITE)
 
 	# Caution styling (#FFB224) on SPE Solar Storm trigger button
 	var spe_norm: StyleBoxFlat = StyleBoxFlat.new()

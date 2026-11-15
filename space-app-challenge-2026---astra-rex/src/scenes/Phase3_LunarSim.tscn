@@ -8,8 +8,8 @@
 background_mode = 1
 background_color = Color(0.02, 0.031, 0.059, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.45, 0.54, 0.72, 1)
-ambient_light_energy = 0.24
+ambient_light_color = Color(0.32, 0.4, 0.55, 1)
+ambient_light_energy = 0.35
 tonemap_mode = 2
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_plume"]
@@ -47,7 +47,7 @@ directional_shadow_max_distance = 160.0
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 35, 0)
 light_color = Color(0.48, 0.68, 1, 1)
-light_energy = 0.35
+light_energy = 0.5
 
 [node name="TerrainBody" type="StaticBody3D" parent="LunarWorld"]
 unique_name_in_owner = true
@@ -68,6 +68,13 @@ unique_name_in_owner = true
 
 [node name="LanderChassis" parent="LunarWorld/LanderPivot" instance=ExtResource("2_chassis")]
 unique_name_in_owner = true
+
+[node name="LanderBounceFillLight" type="OmniLight3D" parent="LunarWorld/LanderPivot"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1.0, 1.8)
+light_color = Color(0.478, 0.561, 0.659, 1)
+light_energy = 0.65
+omni_range = 8.5
 
 [node name="ThrusterPlume" type="MeshInstance3D" parent="LunarWorld/LanderPivot"]
 unique_name_in_owner = true
@@ -127,7 +134,7 @@ size_flags_vertical = 0
 
 [node name="VBox" type="VBoxContainer" parent="UILayout/LeftPanel"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 5
 
 [node name="HeaderLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
 layout_mode = 2
@@ -185,8 +192,8 @@ layout_mode = 2
 [node name="TelemetryTitle" type="Label" parent="UILayout/LeftPanel/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
-theme_override_font_sizes/font_size = 12
-text = "LIVE FLIGHT & SURFACE TELEMETRY"
+theme_override_font_sizes/font_size = 11
+text = "FLIGHT & TOUCHDOWN"
 
 [node name="TelemetryZoneLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
 unique_name_in_owner = true
@@ -211,6 +218,15 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "Slope: 7.5°  •  TRN ON"
+
+[node name="HSep3" type="HSeparator" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+
+[node name="EnvTitle" type="Label" parent="UILayout/LeftPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
+theme_override_font_sizes/font_size = 11
+text = "SURFACE ENVIRONMENT"
 
 [node name="TelemetrySolarLabel" type="Label" parent="UILayout/LeftPanel/VBox"]
 unique_name_in_owner = true
@@ -297,7 +313,7 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 theme_override_font_sizes/font_size = 13
-text = "⚠ Solar Storm (SPE)"
+text = "[!] Solar Storm (SPE)"
 
 [node name="BtnSafeMode" type="Button" parent="UILayout/CenterViewportArea/BottomBar/HBox"]
 unique_name_in_owner = true

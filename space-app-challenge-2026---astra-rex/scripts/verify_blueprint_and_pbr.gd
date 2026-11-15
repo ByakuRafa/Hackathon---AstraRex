@@ -234,10 +234,11 @@ func _verify_vab_deltas_and_pins(main_node: Control) -> void:
 	else:
 		_pass("VAB non-mutating deltas verified (MMRTG action=%s, Ion dPwr=%.0f W, dCost=%.1fM)" % [str(rtg_deltas.get("action")), float(ion_deltas.get("d_power_w")), float(ion_deltas.get("d_cost_musd"))])
 
-	# Verify LanderChassis double-sided material overrides preserve surface textures/colors
+	# Verify LanderChassis double-sided WebGL PBR material overrides preserve surface textures/colors
 	var lc_meshes: Array[MeshInstance3D] = []
 	_collect_meshes(p2.lander_chassis, lc_meshes)
 	var all_cull_disabled: bool = true
+	var all_webgl_pbr_safe: bool = true
 	for mi: MeshInstance3D in lc_meshes:
 		if mi.material_override != null:
 			_fail("LanderChassis MeshInstance3D unexpectedly has blank material_override: %s" % mi.name)
@@ -247,9 +248,14 @@ func _verify_vab_deltas_and_pins(main_node: Control) -> void:
 				var smat: Material = mi.get_active_material(s)
 				if not (smat is BaseMaterial3D) or (smat as BaseMaterial3D).cull_mode != BaseMaterial3D.CULL_DISABLED:
 					all_cull_disabled = false
-	if all_cull_disabled and not lc_meshes.is_empty():
-		_pass("LanderChassis preserves surface materials with CULL_DISABLED across %d meshes" % lc_meshes.size())
-	else:
+				if smat is StandardMaterial3D:
+					var std: StandardMaterial3D = smat as StandardMaterial3D
+					if std.metallic > 0.36 or not std.emission_enabled:
+						_fail("LanderChassis surface %s[%d] WebGL PBR invariant failed (metallic=%.2f emission=%s)" % [mi.name, s, std.metallic, str(std.emission_enabled)])
+						all_webgl_pbr_safe = false
+	if all_cull_disabled and all_webgl_pbr_safe and not lc_meshes.is_empty():
+		_pass("LanderChassis preserves surface materials with CULL_DISABLED & WebGL PBR safety across %d meshes" % lc_meshes.size())
+	elif not all_cull_disabled:
 		_fail("LanderChassis surface override / CULL_DISABLED check failed")
 
 
@@ -377,10 +383,13 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 	if hud == null or not is_instance_valid(hud.power_sparkline) or hud.power_sparkline.custom_minimum_size != Vector2(48.0, 16.0):
 		_fail("MainHUD missing 48x16 TelemetrySparkline")
 		return
+	if hud._card_bars.size() != 6:
+		_fail("MainHUD expected 6 4px micro-progress bars, got %d" % hud._card_bars.size())
+		return
 	if p4 == null or not is_instance_valid(p4._debrief_sparkline) or p4._debrief_sparkline.custom_minimum_size != Vector2(48.0, 16.0):
 		_fail("Phase4_Debrief missing 48x16 TelemetrySparkline")
 		return
-	_pass("BrandStyle 60-30-10 tokens, Pareto #8B6CFF curve, and 48x16px sparklines verified")
+	_pass("BrandStyle 60-30-10 tokens, 6 HUD 4px bars, Pareto #8B6CFF curve, and 48x16px sparklines verified")
 
 	# 4. Verify MUTE toggle & Space/Enter 45-second flow shortcut
 	var mute_btn: Button = main_node.btn_mute_audio
@@ -397,7 +406,7 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 		hud._completed_phases[idx_phase] = false
 	main_node.call("_switch_to_phase", 0, false)
 	await get_tree().process_frame
-	if not String(hud.btn_phase_1.text).begins_with("● ") or not String(hud.btn_phase_2.text).begins_with("○ "):
+	if not String(hud.btn_phase_1.text).begins_with("> ") or not String(hud.btn_phase_2.text).begins_with("• "):
 		_fail("Stepper initial/reset state mismatch at Phase 1: [%s | %s]" % [hud.btn_phase_1.text, hud.btn_phase_2.text])
 		return
 	var space_ev: InputEventKey = InputEventKey.new()
@@ -414,7 +423,7 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 	var p1_tab_text: String = String(hud.btn_phase_1.text)
 	var p2_tab_text: String = String(hud.btn_phase_2.text)
 	var p3_tab_text: String = String(hud.btn_phase_3.text)
-	if not p1_tab_text.begins_with("✔ ") or not p2_tab_text.begins_with("● ") or not p3_tab_text.begins_with("○ "):
+	if not p1_tab_text.begins_with("[OK] ") or not p2_tab_text.begins_with("> ") or not p3_tab_text.begins_with("• "):
 		_fail("Stepper prefix states mismatch at Phase 2: [%s | %s | %s]" % [p1_tab_text, p2_tab_text, p3_tab_text])
 		return
 
@@ -424,11 +433,11 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 	var found_empty_pin: bool = false
 	for pin_info: Dictionary in p2_vab._diegetic_pins:
 		var pin_btn: Button = pin_info.get("button") as Button
-		if pin_btn != null and bool(pin_btn.get_meta("is_empty_slot", false)) and pin_btn.text.begins_with("◌ "):
+		if pin_btn != null and bool(pin_btn.get_meta("is_empty_slot", false)) and pin_btn.text.begins_with("- "):
 			found_empty_pin = true
 			break
 	if not found_empty_pin:
-		_fail("Phase 2 VAB did not render dashed/ghost empty diegetic slot pin (◌ <SLOT>)")
+		_fail("Phase 2 VAB did not render dashed/ghost empty diegetic slot pin (- <SLOT>)")
 		return
 
 	MissionState.toggle_subsystem("shield_heavy")
@@ -440,19 +449,38 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 	await get_tree().process_frame
 
 	var skip_btn: Button = main_node.btn_skip_debrief
-	if not is_instance_valid(skip_btn) or skip_btn.text != "Skip ⏭" or not skip_btn.visible:
-		_fail("Skip ⏭ button missing or hidden during Phase 2 VAB")
+	if not is_instance_valid(skip_btn) or skip_btn.text != "Skip >>" or not skip_btn.visible:
+		_fail("Skip >> button missing or hidden during Phase 2 VAB")
 		return
 	main_node.call("_switch_to_phase", 2, false)
 	await get_tree().process_frame
 	if not skip_btn.visible:
-		_fail("Skip ⏭ button hidden during Phase 3 Lunar Sim")
+		_fail("Skip >> button hidden during Phase 3 Lunar Sim")
 		return
 	skip_btn.pressed.emit()
 	await get_tree().process_frame
 	if int(main_node._current_phase_index) != 3 or skip_btn.visible:
-		_fail("Skip ⏭ button failed to jump to Phase 4 Debrief or hide afterward (phase=%d)" % int(main_node._current_phase_index))
+		_fail("Skip >> button failed to jump to Phase 4 Debrief or hide afterward (phase=%d)" % int(main_node._current_phase_index))
 		return
+
+	for _w_p1: int in range(30):
+		if not ParetoSolver.is_solving and not p4.pareto_chart.pareto_frontier.is_empty():
+			break
+		await get_tree().process_frame
+	if not p4.pareto_chart.pareto_frontier.is_empty():
+		var env_res: Dictionary = p4.pareto_chart.compute_2d_upper_envelope(p4.pareto_chart.pareto_frontier)
+		var env_arr: Array = env_res.get("envelope", []) as Array
+		var prev_ex: float = -INF
+		var prev_ey: float = -INF
+		for e_var: Variant in env_arr:
+			var e_dict: Dictionary = e_var as Dictionary
+			var ex: float = p4.pareto_chart._get_x_value(e_dict)
+			var ey: float = p4.pareto_chart._get_y_value(e_dict)
+			if ex <= prev_ex or ey <= prev_ey:
+				_fail("ParetoChartControl upper envelope not strictly monotonic: (%.2f, %.2f) after (%.2f, %.2f)" % [ex, ey, prev_ex, prev_ey])
+				return
+			prev_ex = ex
+			prev_ey = ey
 
 	var p3_sim: Phase3LunarSim = main_node.get_node("%Phase3_LunarSim") as Phase3LunarSim
 	if not is_equal_approx(float(p3_sim.DESCENT_TARGET_DURATION_S), 4.0):
@@ -480,7 +508,7 @@ func _verify_stage4_brand_audio_fonts_and_shortcuts(main_node: Control) -> void:
 		return
 	MissionState.apply_preset(1)
 	await get_tree().process_frame
-	_pass("Blueprint §4.2 micro-affordances verified (Stepper ✔/●/○, SIR CTA, Skip ⏭, 4.0s descent, 1.5s FeedbackChip, ◌ empty pin, Phase 4 smart empty & 3s #8B6CFF pulse)")
+	_pass("Blueprint §4.2 micro-affordances verified (Stepper [OK]/>/•, SIR CTA, Skip >>, 4.0s descent, 1.5s FeedbackChip, - empty pin, monotonic Pareto envelope, Phase 4 smart empty & 3s #8B6CFF pulse)")
 
 	# 5. Verify packaged WebGL artifact & vercel.json (< 15 MB budget)
 	var zip_path: String = ProjectSettings.globalize_path("res://build/astra_rex_itch_webgl.zip")
