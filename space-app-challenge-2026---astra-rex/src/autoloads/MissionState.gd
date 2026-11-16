@@ -56,6 +56,8 @@ var spe_storm_hours: float = 0.0
 var safe_mode_active: bool = false
 var last_touchdown_slope_deg: float = 7.5
 var mission_failure_code: String = "NONE"
+var has_completed_surface_sim: bool = false
+var last_sim_survived: bool = false
 
 # Cached SI Resource Values
 var dry_mass_nominal_kg: float = 0.0
@@ -146,6 +148,8 @@ func apply_preset(preset_index: int) -> void:
 	spe_storm_hours = 0.0
 	safe_mode_active = false
 	dte_occluded = false
+	has_completed_surface_sim = false
+	last_sim_survived = false
 	var zone: Dictionary = NasaDataLoader.get_landing_zone(selected_landing_zone_id)
 	var zone_solar_pct: float = float(zone.get("solar_illumination_percent", 82.0))
 	in_psr_shadow = zone_solar_pct <= 0.1
@@ -193,12 +197,14 @@ func get_role_label(role: int) -> String:
 func set_launch_vehicle(lv_id: String) -> void:
 	if not NasaDataLoader.get_launch_vehicle(lv_id).is_empty():
 		selected_launch_vehicle_id = lv_id
+		has_completed_surface_sim = false
 		recalculate_all_telemetry(true)
 
 
 func set_orbit(orbit_id: String) -> void:
 	if not NasaDataLoader.get_orbit(orbit_id).is_empty():
 		selected_orbit_id = orbit_id
+		has_completed_surface_sim = false
 		recalculate_all_telemetry(true)
 
 
@@ -206,6 +212,7 @@ func set_landing_zone(zone_id: String) -> void:
 	var zone: Dictionary = NasaDataLoader.get_landing_zone(zone_id)
 	if not zone.is_empty():
 		selected_landing_zone_id = zone_id
+		has_completed_surface_sim = false
 		in_psr_shadow = float(zone.get("solar_illumination_percent", 82.0)) <= 0.1
 		last_touchdown_slope_deg = float(zone.get("mean_slope_deg", 7.5))
 		recalculate_all_telemetry(true)
@@ -219,6 +226,7 @@ func set_selected_subsystems(part_ids: Array[String]) -> void:
 	if not unique_ids.has("chassis_clps"):
 		unique_ids.push_front("chassis_clps")
 	selected_subsystem_ids = unique_ids
+	has_completed_surface_sim = false
 	_sync_selected_subsystems()
 	recalculate_all_telemetry(true)
 
@@ -243,6 +251,7 @@ func equip_subsystem(part_id: String) -> void:
 	if not selected_subsystem_ids.has(part_id):
 		selected_subsystem_ids.append(part_id)
 
+	has_completed_surface_sim = false
 	_sync_selected_subsystems()
 	recalculate_all_telemetry(true)
 
@@ -252,6 +261,7 @@ func remove_subsystem(part_id: String) -> void:
 		return
 	if selected_subsystem_ids.has(part_id):
 		selected_subsystem_ids.erase(part_id)
+		has_completed_surface_sim = false
 		_sync_selected_subsystems()
 		recalculate_all_telemetry(true)
 
@@ -317,6 +327,12 @@ func clear_spe_storm() -> void:
 func record_touchdown_slope(slope_deg: float) -> void:
 	last_touchdown_slope_deg = maxf(0.0, slope_deg)
 	recalculate_all_telemetry(true)
+
+
+func record_surface_sim_completed(survived: bool) -> void:
+	has_completed_surface_sim = true
+	last_sim_survived = survived
+	recalculate_all_telemetry(false)
 
 
 func calculate_total_dry_mass() -> float:
@@ -726,7 +742,124 @@ func _evaluate_primary_failure_code(lv: Dictionary, emit_alerts: bool) -> String
 	return "NOMINAL"
 
 
+func evaluate_mission_segments() -> Dictionary:
+	var lv: Dictionary = NasaDataLoader.get_launch_vehicle(selected_launch_vehicle_id)
+	var max_tli_kg: float = float(lv.get("max_tli_payload_kg", lv.get("max_tli_mass_kg", 0.0)))
+	var lv_short: String = str(lv.get("name", selected_launch_vehicle_id)).split(" (")[0]
+	var mass_ok: bool = (max_tli_kg > 0.0) and (m0_wet_kg <= max_tli_kg)
+	var budget_ok: bool = (total_cost_musd <= budget_cap_musd) or sandbox_mode
+
+	var launch_status: String = "PASS" if (mass_ok and budget_ok) else "FAIL"
+	var launch_detail: String = "%s • %.0f/%.0f kg" % [lv_short, m0_wet_kg, max_tli_kg]
+	if not mass_ok:
+		launch_detail = "%s • OVER TLI (%.0f/%.0f kg)" % [lv_short, m0_wet_kg, max_tli_kg]
+	elif not budget_ok:
+		launch_detail = "%s • OVER CAP ($%.0fM/$%.0fM)" % [lv_short, total_cost_musd, budget_cap_musd]
+
+	var dose_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
+	var rad_ok: bool = (total_mission_dose_msv <= dose_limit) and (has_radhard_obc or total_mission_dose_msv <= 15.0)
+	var space_critical_ok: bool = can_land_lunar and has_sufficient_dv and (net_power_w >= 0.0) and can_survive_slope_hazard
+	var space_caution: bool = (not can_survive_lunar_night) or (not rad_ok)
+	var space_status: String = "FAIL" if not space_critical_ok else ("CAUTION" if space_caution else "PASS")
+	var space_detail: String = "T/W %.2f • P %+.0fW • %.0fd" % [lunar_tw_ratio, net_power_w, mission_lifetime_days]
+	if not can_land_lunar:
+		space_detail = "T/W %.2f < 1.0 Lockout" % lunar_tw_ratio
+	elif not has_sufficient_dv:
+		space_detail = "dV %.0f < %.0f m/s" % [delta_v_ms, required_dv_ms]
+	elif net_power_w < 0.0:
+		space_detail = "Power Deficit %+.0f W" % net_power_w
+	elif not can_survive_slope_hazard:
+		space_detail = "Slope %.1f deg (No TRN)" % last_touchdown_slope_deg
+
+	var has_comms: bool = downlink_mbps > 0.0
+	var ground_ok: bool = has_comms and (data_backlog_gb_day <= 0.0) and (dte_visibility_pct >= 35.0)
+	var ground_status: String = "FAIL" if not has_comms else ("PASS" if ground_ok else "CAUTION")
+	var ground_detail: String = "No DSN Antenna" if not has_comms else ("%.0f Mbps • %.0f%% DTE" % [downlink_mbps, dte_visibility_pct])
+	if has_comms and data_backlog_gb_day > 0.0:
+		ground_detail = "Backlog %.1f GB/d" % data_backlog_gb_day
+
+	var has_payload: bool = science_points_base > 0.0
+	var user_ok: bool = (not selected_objective.is_empty()) and has_payload and (science_points_effective > 0.0)
+	var user_status: String = "FAIL" if not has_payload else ("PASS" if user_ok else "CAUTION")
+	var user_detail: String = "No Science Payload" if not has_payload else ("%s • %.0f pts" % [selected_objective.split(" ")[0], science_points_effective])
+
+	var citation: String = NasaDataLoader.get_mission_architecture_citation()
+	return {
+		"launch": {
+			"label": "Launch",
+			"status": launch_status,
+			"detail": launch_detail,
+			"citation": citation
+		},
+		"space": {
+			"label": "Space",
+			"status": space_status,
+			"detail": space_detail,
+			"citation": citation
+		},
+		"ground": {
+			"label": "Ground",
+			"status": ground_status,
+			"detail": ground_detail,
+			"citation": citation
+		},
+		"user": {
+			"label": "User",
+			"status": user_status,
+			"detail": user_detail,
+			"citation": citation
+		},
+		"all_pass": (launch_status == "PASS" and space_status == "PASS" and ground_status == "PASS" and user_status == "PASS"),
+		"citation": citation
+	}
+
+
+func evaluate_concept_maturity_level() -> Dictionary:
+	var lv: Dictionary = NasaDataLoader.get_launch_vehicle(selected_launch_vehicle_id)
+	var max_tli_kg: float = float(lv.get("max_tli_payload_kg", lv.get("max_tli_mass_kg", 0.0)))
+	var mass_ok: bool = (max_tli_kg > 0.0) and (m0_wet_kg <= max_tli_kg)
+	var budget_ok: bool = (total_cost_musd <= budget_cap_musd) or sandbox_mode
+	var mga_pct: float = (mga_mass_kg / dry_mass_nominal_kg * 100.0) if dry_mass_nominal_kg > 0.0 else 15.0
+
+	var cml1_ok: bool = (not selected_objective.is_empty()) and (not selected_landing_zone_id.is_empty())
+	var cml2_ok: bool = cml1_ok and mass_ok and budget_ok and can_land_lunar and has_sufficient_dv
+	var cml3_ok: bool = cml2_ok and (selected_subsystem_ids.size() > 1) and (science_points_base > 0.0) and (downlink_mbps > 0.0)
+	var cml4_ok: bool = cml3_ok and (mission_failure_code == "NOMINAL") and (net_power_w >= 0.0) and can_survive_lunar_night and can_survive_slope_hazard
+
+	var level: int = 1
+	var label: String = "CML 1: Initial Concept"
+	var stage_note: String = "Objective & South Pole site framed; resolve TLI mass, T/W, or Delta-v feasibility."
+	if cml4_ok:
+		level = 4
+		label = "CML 4: Point Design (Verified)" if (has_completed_surface_sim and last_sim_survived) else "CML 4: Point Design (SIR Pass)"
+		stage_note = "All 4 Mission Segments & SIR checks nominal; baseline ready for JSON/CSV export."
+	elif cml3_ok:
+		level = 3
+		label = "CML 3: Trade Space"
+		stage_note = "Subsystems & +%.1f%% MGA modeled; resolve power, DSN, TRN, or radiation margin for CML 4." % mga_pct
+	elif cml2_ok:
+		level = 2
+		label = "CML 2: Feasibility"
+		stage_note = "Launch/orbit feasibility passed; equip science payload & DSN comms for CML 3."
+
+	return {
+		"level": level,
+		"max_level": 4,
+		"label": label,
+		"stage_note": stage_note,
+		"mga_avg_percent": mga_pct,
+		"cml1_concept": cml1_ok,
+		"cml2_feasibility": cml2_ok,
+		"cml3_trade_space": cml3_ok,
+		"cml4_point_design": cml4_ok,
+		"sim_verified": has_completed_surface_sim and last_sim_survived,
+		"citation": NasaDataLoader.get_cml_citation()
+	}
+
+
 func get_telemetry_snapshot() -> Dictionary:
+	var segs: Dictionary = evaluate_mission_segments()
+	var cml: Dictionary = evaluate_concept_maturity_level()
 	return {
 		"preset_index": current_preset_index,
 		"engineer_mode": engineer_mode,
@@ -789,7 +922,12 @@ func get_telemetry_snapshot() -> Dictionary:
 		"spe_storm_active": spe_storm_active,
 		"safe_mode_active": safe_mode_active,
 		"last_touchdown_slope_deg": last_touchdown_slope_deg,
-		"failure_code": mission_failure_code
+		"failure_code": mission_failure_code,
+		"has_completed_surface_sim": has_completed_surface_sim,
+		"cml_level": int(cml.get("level", 1)),
+		"cml_label": str(cml.get("label", "CML 1: Initial Concept")),
+		"concept_maturity_level": cml,
+		"mission_segments": segs
 	}
 
 
@@ -818,6 +956,8 @@ func import_design_code(code: String) -> bool:
 		selected_orbit_id = str(dict.get("orb", selected_orbit_id))
 	if dict.has("zone"):
 		selected_landing_zone_id = str(dict.get("zone", selected_landing_zone_id))
+	has_completed_surface_sim = false
+	last_sim_survived = false
 	if dict.has("parts") and typeof(dict.get("parts")) == TYPE_ARRAY:
 		var part_ids: Array[String] = []
 		for pid_var: Variant in (dict.get("parts", []) as Array):

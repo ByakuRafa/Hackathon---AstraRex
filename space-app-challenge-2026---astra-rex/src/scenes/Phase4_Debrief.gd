@@ -49,6 +49,7 @@ var _is_debrief_active: bool = false
 var _refresh_queued: bool = false
 var _latest_report: Dictionary = {}
 var _debrief_sparkline: TelemetrySparkline = null
+var _cml_segments_label: Label = null
 var _mission_evaluated: bool = false
 
 
@@ -92,6 +93,19 @@ func _setup_fonts_and_sparkline() -> void:
 				_debrief_sparkline.name = "DebriefRadSparkline"
 				_debrief_sparkline.tooltip_text = "Projected 180-Day Surface Dose Curve vs 100 mSv Mission Limit\n[NASA OSDR RadLab & LRO CRaTER]"
 				hdr_row.add_child(_debrief_sparkline)
+
+	# Inject compact 1-line CML 1-4 & 4 Mission Segments indicator into PrimaryStatusCard
+	if is_instance_valid(primary_status_card):
+		var p_vbox: VBoxContainer = primary_status_card.get_node_or_null("VBox") as VBoxContainer
+		if p_vbox != null:
+			_cml_segments_label = Label.new()
+			_cml_segments_label.name = "CmlSegmentsLabel"
+			_cml_segments_label.add_theme_font_size_override("font_size", 11)
+			_cml_segments_label.add_theme_color_override("font_color", COLOR_ACCENT)
+			_cml_segments_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			_cml_segments_label.mouse_filter = Control.MOUSE_FILTER_STOP
+			BrandStyle.bind_mono_font(_cml_segments_label)
+			p_vbox.add_child(_cml_segments_label)
 
 
 func set_debrief_active(active: bool) -> void:
@@ -217,6 +231,40 @@ func _render_primary_status_card(report: Dictionary) -> void:
 		]
 	)
 
+	var cml: Dictionary = report.get("concept_maturity_level", {}) as Dictionary
+	var segs: Dictionary = report.get("mission_segments", {}) as Dictionary
+	if is_instance_valid(_cml_segments_label) and not cml.is_empty() and not segs.is_empty():
+		var lvl: int = int(cml.get("level", 1))
+		var l_st: String = _short_seg_tag((segs.get("launch", {}) as Dictionary).get("status", "--"))
+		var s_st: String = _short_seg_tag((segs.get("space", {}) as Dictionary).get("status", "--"))
+		var g_st: String = _short_seg_tag((segs.get("ground", {}) as Dictionary).get("status", "--"))
+		var u_st: String = _short_seg_tag((segs.get("user", {}) as Dictionary).get("status", "--"))
+		_cml_segments_label.text = "CML %d/4 • Launch %s | Space %s | Ground %s | User %s" % [lvl, l_st, s_st, g_st, u_st]
+		_cml_segments_label.add_theme_color_override("font_color", COLOR_OK if lvl >= 4 else (COLOR_ACCENT if lvl == 3 else COLOR_WARN))
+		_cml_segments_label.tooltip_text = (
+			"%s\n%s\nMGA Reserve: +%.1f%%\n\n" % [str(cml.get("label", "")), str(cml.get("stage_note", "")), float(cml.get("mga_avg_percent", 15.0))]
+			+ "4 NASA Mission Segments:\n"
+			+ "• Launch: %s\n• Space: %s\n• Ground: %s\n• User: %s\n\n" % [
+				str((segs.get("launch", {}) as Dictionary).get("detail", "")),
+				str((segs.get("space", {}) as Dictionary).get("detail", "")),
+				str((segs.get("ground", {}) as Dictionary).get("detail", "")),
+				str((segs.get("user", {}) as Dictionary).get("detail", ""))
+			]
+			+ "[NASA Citations]\n%s\n%s" % [
+				NasaDataLoader.get_mission_architecture_citation(),
+				NasaDataLoader.get_cml_citation()
+			]
+		)
+
+
+func _short_seg_tag(status_val: Variant) -> String:
+	var st: String = str(status_val)
+	if st == "PASS":
+		return "[OK]"
+	if st == "CAUTION":
+		return "[!]"
+	return "[X]"
+
 
 func _render_bottlenecks_card(report: Dictionary) -> void:
 	for child: Node in bottlenecks_vbox.get_children():
@@ -225,9 +273,9 @@ func _render_bottlenecks_card(report: Dictionary) -> void:
 	var bottlenecks: Array = report.get("all_bottlenecks", []) as Array
 	if bottlenecks.is_empty():
 		var opt_row: Label = _make_action_row(
-			"[OK] PASS • All SI constraints satisfied. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
+			"[OK] PASS • All 4 Mission Segments (Launch/Space/Ground/User) & CML 4 Point Design validated. Toggle Cost / Wet Mass to inspect lighter frontier variants.",
 			COLOR_OK,
-			"All NASA SP-2016-6105, JPL DE441, LRO LOLA, and OSDR RadLab envelopes satisfied."
+			"All NASA SP-2016-6105, Design & Develop Science Missions (4 Segments), JPL CML 4, JPL DE441, LRO LOLA, and OSDR RadLab envelopes satisfied."
 		)
 		bottlenecks_vbox.add_child(opt_row)
 		return

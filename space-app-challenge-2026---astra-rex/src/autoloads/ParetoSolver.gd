@@ -467,7 +467,9 @@ func generate_root_cause_report() -> Dictionary:
 		"nearest_pareto_optimum": nearest_opt,
 		"pareto_deltas": deltas,
 		"telemetry": telem,
-		"launch_compatibility": compat
+		"launch_compatibility": compat,
+		"mission_segments": telem.get("mission_segments", MissionState.evaluate_mission_segments()),
+		"concept_maturity_level": telem.get("concept_maturity_level", MissionState.evaluate_concept_maturity_level())
 	}
 
 
@@ -490,6 +492,8 @@ func export_telemetry_report(format: String = "json") -> String:
 			"exported_at_utc": Time.get_datetime_string_from_system(true),
 			"nasa_references": [
 				NasaDataLoader.get_catalog_citation(),
+				NasaDataLoader.get_mission_architecture_citation(),
+				NasaDataLoader.get_cml_citation(),
 				NasaDataLoader.get_ephemeris_citation(),
 				NasaDataLoader.get_radiation_citation(),
 				str(NasaDataLoader.get_terrain_metadata().get("nasa_citation", "LRO LOLA GDR 20 m/px"))
@@ -546,4 +550,10 @@ func _build_csv_report(report: Dictionary) -> String:
 	lines.append("total_mission_dose,%.3f,mSv,NASA OSDR RadLab & LRO CRaTER" % float(telem.get("total_mission_dose_msv", 0.0)))
 	lines.append("mission_lifetime,%.2f,days,SP-2016-6105 & OSDR RadLab" % float(telem.get("mission_lifetime_days", 0.0)))
 	lines.append("failure_code,%s,code,Physical Diagnostics Engine" % str(telem.get("failure_code", "NOMINAL")))
+	var cml: Dictionary = report.get("concept_maturity_level", {}) as Dictionary
+	var segs: Dictionary = report.get("mission_segments", {}) as Dictionary
+	lines.append("concept_maturity_level,CML %d/4 (%s),level,NASA/JPL Concept Maturity Levels (hdl:2014/44299)" % [int(cml.get("level", 1)), str(cml.get("label", "CML 1"))])
+	for seg_key: String in ["launch", "space", "ground", "user"]:
+		var seg_d: Dictionary = segs.get(seg_key, {}) as Dictionary
+		lines.append("segment_%s_status,%s,status,NASA Design and Develop Science Missions (2025)" % [seg_key, str(seg_d.get("status", "UNKNOWN"))])
 	return "\n".join(lines)

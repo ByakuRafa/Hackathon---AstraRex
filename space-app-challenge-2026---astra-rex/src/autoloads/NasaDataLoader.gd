@@ -547,3 +547,28 @@ func get_all_landing_zones() -> Dictionary:
 func get_catalog_citation() -> String:
 	var meta: Dictionary = parts_catalog_raw.get("metadata", {}) as Dictionary
 	return str(meta.get("reference", "NASA Systems Engineering Handbook (NASA SP-2016-6105 Rev2)"))
+
+
+func get_mission_architecture_citation() -> String:
+	var meta: Dictionary = parts_catalog_raw.get("metadata", {}) as Dictionary
+	return str(meta.get("mission_architecture_reference", "NASA — Design and Develop Science Missions (2025): Four Mission Segments (Launch, Space, Ground, User)"))
+
+
+func get_cml_citation() -> String:
+	var meta: Dictionary = parts_catalog_raw.get("metadata", {}) as Dictionary
+	return str(meta.get("maturity_framework_reference", "NASA/JPL — Concept Maturity Levels (CMLs, hdl:2014/44299): CML 1-4 Pre-Formulation Progression"))
+
+
+func get_mission_segments_meta() -> Dictionary:
+	var meta: Dictionary = parts_catalog_raw.get("metadata", {}) as Dictionary
+	return (meta.get("mission_segments", {}) as Dictionary).duplicate(true)
+
+
+func get_cml_definitions() -> Array[Dictionary]:
+	var meta: Dictionary = parts_catalog_raw.get("metadata", {}) as Dictionary
+	var raw_arr: Array = meta.get("concept_maturity_levels", []) as Array
+	var out: Array[Dictionary] = []
+	for item_var: Variant in raw_arr:
+		if typeof(item_var) == TYPE_DICTIONARY:
+			out.append((item_var as Dictionary).duplicate(true))
+	return out

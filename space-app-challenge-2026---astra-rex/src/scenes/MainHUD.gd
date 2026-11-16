@@ -632,6 +632,18 @@ func _emit_telemetry_delta_chip(snap: Dictionary) -> void:
 
 
 func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> void:
+	var cml: Dictionary = snap.get("concept_maturity_level", {}) as Dictionary
+	var segs: Dictionary = snap.get("mission_segments", {}) as Dictionary
+	var arch_footer: String = ""
+	if not cml.is_empty() and not segs.is_empty():
+		arch_footer = "\n\nMaturity: %s\nSegments: Launch [%s] | Space [%s] | Ground [%s] | User [%s]\n[NASA Design & Develop Science Missions (2025) • JPL CMLs hdl:2014/44299]" % [
+			str(cml.get("label", "CML 1")),
+			str((segs.get("launch", {}) as Dictionary).get("status", "--")),
+			str((segs.get("space", {}) as Dictionary).get("status", "--")),
+			str((segs.get("ground", {}) as Dictionary).get("status", "--")),
+			str((segs.get("user", {}) as Dictionary).get("status", "--"))
+		]
+
 	if failure_code == "NOMINAL":
 		var label_str: String = "[OK] NOMINAL" if eng else "[OK] PASS • READY"
 		_apply_status_pill(label_str, COLOR_OK)
@@ -640,12 +652,16 @@ func _update_status_badge(failure_code: String, eng: bool, snap: Dictionary) -> 
 			+ "Wet Mass m0: %.1f kg | Lunar T/W: %.2f | Net Power: %+.1f W\n\n"
 			% [float(snap.get("m0_wet_kg", 0.0)), float(snap.get("lunar_tw_ratio", 0.0)), float(snap.get("net_power_w", 0.0))]
 			+ "[NASA Reference]\nNASA SP-2016-6105 Rev2 Systems Engineering Constraints"
+			+ arch_footer
 		)
 	elif failure_code == "DSN_DOWNLINK_BOTTLENECK":
 		_apply_status_pill("[!] CAUTION • COMMS", COLOR_WARN)
+		status_badge_label.tooltip_text = "Ground Segment DSN Downlink Bottleneck%s" % arch_footer
 	else:
 		var short_code: String = _abbreviate_failure(failure_code)
 		_apply_status_pill("[X] FAIL • %s" % short_code, COLOR_CRIT)
+		if not arch_footer.is_empty():
+			status_badge_label.tooltip_text += arch_footer
 
 
 func _abbreviate_failure(code: String) -> String:
@@ -713,14 +729,15 @@ func _update_mass_card(snap: Dictionary, lv: Dictionary, eng: bool) -> void:
 	_update_card_progress_bar("mass", mass_ratio, mass_bar_col)
 
 	var citation: String = str(lv.get("nasa_citation", NasaDataLoader.get_catalog_citation()))
+	var cml_label: String = str(snap.get("cml_label", "CML 1: Initial Concept"))
 	card_mass.tooltip_text = (
 		"Launch Mass & Mass Growth Allowance (MGA)\n"
 		+ "Nominal Dry Mass: %.2f kg\n" % dry_nom
-		+ "MGA Reserve: +%.2f kg (+%.1f%%)\n" % [mga_kg, mga_pct]
+		+ "MGA Reserve: +%.2f kg (+%.1f%% — %s uncertainty)\n" % [mga_kg, mga_pct, cml_label]
 		+ "Effective Dry Mass (mf): %.2f kg\n" % mf_dry
 		+ "Propellant Load: %.1f kg\n" % prop_kg
 		+ "Total Wet Mass (m0): %.2f kg / %.1f kg TLI Cap\n\n" % [m0_wet, max_tli]
-		+ "[NASA Citation]\n%s\nNASA SP-2016-6105 Rev2 Sec 4.3 & Appendix G (MGA)" % citation
+		+ "[NASA Citation]\n%s\nNASA SP-2016-6105 Rev2 Sec 4.3 & Appendix G (MGA)\n%s" % [citation, NasaDataLoader.get_cml_citation()]
 	)
 
 

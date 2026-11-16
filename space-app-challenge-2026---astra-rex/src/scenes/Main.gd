@@ -354,9 +354,10 @@ func _on_preset_loaded(preset_index: int, _preset_name: String) -> void:
 	play_sfx("quindar_beep")
 
 
-func _on_descent_completed(_survived: bool) -> void:
+func _on_descent_completed(survived: bool) -> void:
 	_idle_seconds = 0.0
 	_has_evaluated_mission = true
+	MissionState.record_surface_sim_completed(survived)
 	if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):
 		phase4_debrief.set_mission_evaluated(true)
 	if is_instance_valid(main_hud):
@@ -492,6 +493,21 @@ func _on_mission_state_updated(snap: Dictionary) -> void:
 			system_status_badge.text = "[OK] SIR APPROVED • PASS (SAFE T/W & MARGIN)"
 		system_status_badge.add_theme_color_override("font_color", COL_EMERALD)
 		system_status_badge.tooltip_text = "System Integration Review (SIR) Approved: All launch, orbital Delta-V, lunar T/W, and night survival checks nominal (NASA SP-2016-6105 Rev2)."
+
+	var cml: Dictionary = snap.get("concept_maturity_level", {}) as Dictionary
+	var segs: Dictionary = snap.get("mission_segments", {}) as Dictionary
+	if not cml.is_empty() and not segs.is_empty():
+		var seg_line: String = "Segments: Launch [%s] | Space [%s] | Ground [%s] | User [%s]" % [
+			str((segs.get("launch", {}) as Dictionary).get("status", "--")),
+			str((segs.get("space", {}) as Dictionary).get("status", "--")),
+			str((segs.get("ground", {}) as Dictionary).get("status", "--")),
+			str((segs.get("user", {}) as Dictionary).get("status", "--"))
+		]
+		system_status_badge.tooltip_text += "\n\n%s (%s)\n%s\n[Refs: Design & Develop Science Missions (2025) • JPL CML hdl:2014/44299]" % [
+			str(cml.get("label", "CML 1")),
+			str(cml.get("stage_note", "")),
+			seg_line
+		]
 
 
 func _on_copy_design_code_pressed() -> void:

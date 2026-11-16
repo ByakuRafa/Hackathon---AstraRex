@@ -266,8 +266,16 @@ func _verify_presets_and_phase_flow(main_node: Control) -> void:
 	await tree.process_frame
 	if not shell._next_step_glow_active:
 		_fail("Preset 2 did not activate Next-Step cyan glow")
+	var p2_cml: Dictionary = MissionState.evaluate_concept_maturity_level()
+	var p2_segs: Dictionary = MissionState.evaluate_mission_segments()
+	if int(p2_cml.get("level", 0)) >= 4 or str((p2_segs.get("space", {}) as Dictionary).get("status", "")) != "FAIL":
+		_fail("Preset 2 should fail Space segment and stay below CML 4 (got level=%s space=%s)" % [str(p2_cml.get("level")), str((p2_segs.get("space", {}) as Dictionary).get("status"))])
 	MissionState.apply_preset(1)
 	await tree.process_frame
+	var p1_cml: Dictionary = MissionState.evaluate_concept_maturity_level()
+	var p1_segs: Dictionary = MissionState.evaluate_mission_segments()
+	if int(p1_cml.get("level", 0)) != 4 or not bool(p1_segs.get("all_pass", false)):
+		_fail("Preset 1 should achieve CML 4 and pass all 4 Mission Segments (got level=%s all_pass=%s)" % [str(p1_cml.get("level")), str(p1_segs.get("all_pass"))])
 
 	shell._switch_to_phase(0)
 	await tree.process_frame

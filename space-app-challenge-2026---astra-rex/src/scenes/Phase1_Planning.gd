@@ -124,6 +124,8 @@ var _role_buttons: Dictionary = {}
 var _lv_buttons: Dictionary = {}
 var _orbit_buttons: Dictionary = {}
 var _check_labels: Dictionary = {}
+var _cml_pill_label: Label = null
+var _segment_rows: Dictionary = {}
 
 
 func _ready() -> void:
@@ -133,6 +135,7 @@ func _ready() -> void:
 	_build_landing_zone_buttons()
 	_build_team_controls()
 	_build_launch_vehicle_buttons()
+	_build_segments_and_cml_panel()
 	_build_orbit_buttons()
 	_build_check_grid()
 	_style_proceed_button()
@@ -283,6 +286,77 @@ func _build_launch_vehicle_buttons() -> void:
 		btn.pressed.connect(_on_launch_vehicle_selected.bind(lv_id))
 		lv_list.add_child(btn)
 		_lv_buttons[lv_id] = btn
+
+
+func _build_segments_and_cml_panel() -> void:
+	var lv_vbox: VBoxContainer = lv_list.get_parent() as VBoxContainer
+	if lv_vbox == null:
+		return
+
+	var insert_idx: int = lv_list.get_index() + 1
+	var sep: HSeparator = HSeparator.new()
+	lv_vbox.add_child(sep)
+	lv_vbox.move_child(sep, insert_idx)
+	insert_idx += 1
+
+	var sub_hdr: Label = Label.new()
+	sub_hdr.text = "NASA 4 SEGMENTS & CML MATURITY"
+	sub_hdr.add_theme_font_size_override("font_size", 11)
+	sub_hdr.add_theme_color_override("font_color", COLOR_MUTED)
+	sub_hdr.mouse_filter = Control.MOUSE_FILTER_STOP
+	sub_hdr.tooltip_text = "%s\n%s" % [
+		NasaDataLoader.get_mission_architecture_citation(),
+		NasaDataLoader.get_cml_citation()
+	]
+	lv_vbox.add_child(sub_hdr)
+	lv_vbox.move_child(sub_hdr, insert_idx)
+	insert_idx += 1
+
+	_cml_pill_label = Label.new()
+	_cml_pill_label.text = "CML 1/4: Initial Concept"
+	_cml_pill_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cml_pill_label.add_theme_font_size_override("font_size", 12)
+	_cml_pill_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	BrandStyle.bind_mono_font(_cml_pill_label)
+	lv_vbox.add_child(_cml_pill_label)
+	lv_vbox.move_child(_cml_pill_label, insert_idx)
+	insert_idx += 1
+
+	var seg_grid: GridContainer = GridContainer.new()
+	seg_grid.columns = 2
+	seg_grid.add_theme_constant_override("h_separation", 8)
+	seg_grid.add_theme_constant_override("v_separation", 4)
+	lv_vbox.add_child(seg_grid)
+	lv_vbox.move_child(seg_grid, insert_idx)
+
+	var seg_defs: Array[Array] = [
+		["launch", "1. Launch Seg"],
+		["space", "2. Space Seg"],
+		["ground", "3. Ground Seg"],
+		["user", "4. User Seg"]
+	]
+	for entry: Array in seg_defs:
+		var seg_key: String = str(entry[0])
+		var seg_title: String = str(entry[1])
+
+		var name_lbl: Label = Label.new()
+		name_lbl.text = seg_title
+		name_lbl.add_theme_font_size_override("font_size", 11)
+		name_lbl.add_theme_color_override("font_color", COLOR_MUTED)
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		seg_grid.add_child(name_lbl)
+
+		var val_lbl: Label = Label.new()
+		val_lbl.text = "--"
+		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		val_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		val_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		val_lbl.add_theme_font_size_override("font_size", 11)
+		val_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		BrandStyle.bind_mono_font(val_lbl)
+		seg_grid.add_child(val_lbl)
+
+		_segment_rows[seg_key] = {"name": name_lbl, "value": val_lbl}
 
 
 func _build_orbit_buttons() -> void:
@@ -464,6 +538,63 @@ func _refresh_ui(snap: Dictionary) -> void:
 				orb_btn.text = "%s (%s)\n%.0f m/s Δv  •  %.0f%% DTE" % [orb_short, orb_tag, orb_dv, orb_dte]
 
 	_update_launch_vehicle_check(snap)
+	_update_segments_and_cml_panel(snap)
+
+
+func _update_segments_and_cml_panel(snap: Dictionary) -> void:
+	var cml: Dictionary = snap.get("concept_maturity_level", {}) as Dictionary
+	var segs: Dictionary = snap.get("mission_segments", {}) as Dictionary
+
+	if is_instance_valid(_cml_pill_label) and not cml.is_empty():
+		var lvl: int = int(cml.get("level", 1))
+		var lbl_str: String = str(cml.get("label", "CML 1: Initial Concept"))
+		var note_str: String = str(cml.get("stage_note", ""))
+		var mga_pct: float = float(cml.get("mga_avg_percent", 15.0))
+		var col: Color = COLOR_OK if lvl >= 4 else (COLOR_ACCENT if lvl == 3 else (COLOR_WARN if lvl == 2 else COLOR_CRIT))
+		_cml_pill_label.text = "[CML %d/4] %s" % [lvl, lbl_str.replace("CML %d: " % lvl, "")]
+		_cml_pill_label.add_theme_color_override("font_color", COLOR_WHITE)
+		var pill: StyleBoxFlat = StyleBoxFlat.new()
+		pill.bg_color = Color(col.r * 0.25, col.g * 0.25, col.b * 0.25, 0.92)
+		pill.border_color = col
+		pill.set_border_width_all(1)
+		pill.set_corner_radius_all(4)
+		pill.content_margin_left = 8.0
+		pill.content_margin_right = 8.0
+		pill.content_margin_top = 4.0
+		pill.content_margin_bottom = 4.0
+		_cml_pill_label.add_theme_stylebox_override("normal", pill)
+		_cml_pill_label.tooltip_text = (
+			"%s\n%s\nSP-2016-6105 MGA Applied: +%.1f%% (reflects CML %d design uncertainty)\n\n"
+			% [lbl_str, note_str, mga_pct, lvl]
+			+ "[NASA/JPL Citation]\n%s" % str(cml.get("citation", NasaDataLoader.get_cml_citation()))
+		)
+
+	var seg_meta: Dictionary = NasaDataLoader.get_mission_segments_meta()
+	for seg_key: String in ["launch", "space", "ground", "user"]:
+		if not _segment_rows.has(seg_key):
+			continue
+		var row_dict: Dictionary = _segment_rows[seg_key] as Dictionary
+		var name_lbl: Label = row_dict.get("name") as Label
+		var val_lbl: Label = row_dict.get("value") as Label
+		var seg_data: Dictionary = segs.get(seg_key, {}) as Dictionary
+		var status_str: String = str(seg_data.get("status", "PASS"))
+		var detail_str: String = str(seg_data.get("detail", "--"))
+		var prefix: String = "[OK]" if status_str == "PASS" else ("[!]" if status_str == "CAUTION" else "[X]")
+		var s_col: Color = COLOR_OK if status_str == "PASS" else (COLOR_WARN if status_str == "CAUTION" else COLOR_CRIT)
+		if is_instance_valid(val_lbl):
+			val_lbl.text = "%s %s" % [prefix, detail_str]
+			val_lbl.add_theme_color_override("font_color", s_col)
+			var meta_entry: Dictionary = seg_meta.get(seg_key, {}) as Dictionary
+			var tip: String = "%s (%s)\n%s\nStatus: %s\n\n[NASA Citation]\n%s" % [
+				str(meta_entry.get("name", seg_key.capitalize() + " Segment")),
+				status_str,
+				str(meta_entry.get("description", "")),
+				detail_str,
+				str(seg_data.get("citation", NasaDataLoader.get_mission_architecture_citation()))
+			]
+			val_lbl.tooltip_text = tip
+			if is_instance_valid(name_lbl):
+				name_lbl.tooltip_text = tip
 
 
 func _update_role_priority_callout(active_r: int, snap: Dictionary) -> void:
