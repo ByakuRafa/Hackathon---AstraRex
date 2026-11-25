@@ -11,6 +11,10 @@ const COL_CYAN: Color = BrandStyle.NOMINAL_CYAN         # #2FD3FF
 const COL_GUIDE_VIOLET: Color = BrandStyle.GUIDE_VIOLET # #8B6CFF
 const COL_NEON_YELLOW: Color = BrandStyle.NEON_YELLOW   # #EAFE07
 
+const GAME_TITLE: String = "SHACKLETON 89°S"
+const GAME_SUBTITLE: String = "3D Lunar South Pole Mission Engineering Simulator"
+const MissionGuideOverlayScript: GDScript = preload("res://src/ui/MissionGuideOverlay.gd")
+
 const SFX_PATHS: Dictionary = {
 	"vab_snap": "res://assets/audio/vab_snap.wav",
 	"quindar_beep": "res://assets/audio/quindar_beep.wav",
@@ -53,6 +57,9 @@ var _ready_initialized: bool = false
 var _sfx_players: Dictionary = {}
 var _audio_muted: bool = false
 var _thruster_loop_active: bool = false
+var _title_overlay: Control = null
+var _title_overlay_active: bool = false
+var _guide_overlay: Control = null
 
 
 func _ready() -> void:
@@ -62,8 +69,11 @@ func _ready() -> void:
 	_setup_mute_button()
 	_setup_skip_button()
 	_apply_tabular_fonts()
+	_setup_micro_guide_overlay()
+	_setup_title_overlay()
 
 	main_hud.phase_requested.connect(_on_phase_requested)
+	main_hud.guide_toggle_requested.connect(_on_guide_toggle_requested)
 	phase1_planning.proceed_to_vab_requested.connect(_switch_to_phase.bind(1))
 	phase2_vab.proceed_to_descent_requested.connect(_switch_to_phase.bind(2))
 	phase3_lunar_sim.return_to_vab_requested.connect(_switch_to_phase.bind(1))
@@ -82,6 +92,7 @@ func _ready() -> void:
 	primary_next_step_btn.pressed.connect(_on_primary_next_step_pressed)
 
 	_switch_to_phase(0, false)
+	_show_title_overlay()
 	_on_mission_state_updated(MissionState.get_telemetry_snapshot())
 	_ready_initialized = true
 
@@ -103,6 +114,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if _title_overlay_active:
+		return
 	_idle_seconds += delta
 	# Exclusive 1.2s smooth sine cycle on the Single Guidance Pulse (#8B6CFF)
 	_glow_phase += delta * (TAU / 1.2)
@@ -131,6 +144,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var key_ev: InputEventKey = event as InputEventKey
 	if not key_ev.pressed or key_ev.echo:
 		return
+	if key_ev.keycode == KEY_ESCAPE and is_instance_valid(_guide_overlay) and _guide_overlay.visible:
+		_guide_overlay.call("close_guide")
+		if get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	if _title_overlay_active or (is_instance_valid(_guide_overlay) and _guide_overlay.visible):
+		return
 	if key_ev.keycode != KEY_SPACE and key_ev.keycode != KEY_ENTER and key_ev.keycode != KEY_KP_ENTER:
 		return
 	if is_instance_valid(bottom_design_code_edit) and bottom_design_code_edit.has_focus():
@@ -141,6 +161,180 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if get_viewport() != null:
 		get_viewport().set_input_as_handled()
 	_on_primary_next_step_pressed()
+
+
+func _setup_micro_guide_overlay() -> void:
+	if not is_instance_valid(phase_container):
+		return
+	_guide_overlay = MissionGuideOverlayScript.new() as Control
+	_guide_overlay.name = "MissionGuideOverlay"
+	_guide_overlay.connect("guide_closed", func() -> void:
+		if is_instance_valid(main_hud):
+			main_hud.set_guide_button_pressed(false)
+	)
+	phase_container.add_child(_guide_overlay)
+
+
+func _on_guide_toggle_requested(active: bool) -> void:
+	play_sfx("ui_hover_tick")
+	if not is_instance_valid(_guide_overlay):
+		return
+	if active:
+		_guide_overlay.call("open_guide")
+	else:
+		_guide_overlay.call("close_guide")
+
+
+func _setup_title_overlay() -> void:
+	if not is_instance_valid(phase_container):
+		return
+	_title_overlay = Control.new()
+	_title_overlay.name = "TitleOverlay"
+	_title_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_title_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_title_overlay.z_index = 90
+	phase_container.add_child(_title_overlay)
+
+	var scrim: ColorRect = ColorRect.new()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.color = Color(0.020, 0.031, 0.059, 0.52)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_title_overlay.add_child(scrim)
+
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	_title_overlay.add_child(center)
+
+	var card: PanelContainer = PanelContainer.new()
+	card.custom_minimum_size = Vector2(580.0, 0.0)
+	var card_sb: StyleBoxFlat = StyleBoxFlat.new()
+	card_sb.bg_color = Color(0.055, 0.086, 0.141, 0.90)
+	card_sb.border_color = BrandStyle.PANEL_BORDER
+	card_sb.set_border_width_all(1)
+	card_sb.border_width_top = 2
+	card_sb.set_corner_radius_all(10)
+	card_sb.content_margin_left = 28.0
+	card_sb.content_margin_right = 28.0
+	card_sb.content_margin_top = 24.0
+	card_sb.content_margin_bottom = 24.0
+	card.add_theme_stylebox_override("panel", card_sb)
+	center.add_child(card)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	card.add_child(vbox)
+
+	var pill_center: CenterContainer = CenterContainer.new()
+	vbox.add_child(pill_center)
+	var credit_pill: Label = Label.new()
+	credit_pill.text = "Powered by Real NASA Data  •  Space Apps 2026 National Finalist"
+	credit_pill.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credit_pill.add_theme_font_size_override("font_size", 11)
+	credit_pill.add_theme_color_override("font_color", COL_CYAN)
+	BrandStyle.bind_mono_font(credit_pill)
+	var pill_sb: StyleBoxFlat = StyleBoxFlat.new()
+	pill_sb.bg_color = Color(0.030, 0.140, 0.240, 0.90)
+	pill_sb.border_color = Color(COL_CYAN.r, COL_CYAN.g, COL_CYAN.b, 0.65)
+	pill_sb.set_border_width_all(1)
+	pill_sb.set_corner_radius_all(12)
+	pill_sb.content_margin_left = 12.0
+	pill_sb.content_margin_right = 12.0
+	pill_sb.content_margin_top = 4.0
+	pill_sb.content_margin_bottom = 4.0
+	credit_pill.add_theme_stylebox_override("normal", pill_sb)
+	pill_center.add_child(credit_pill)
+
+	var title_lbl: Label = Label.new()
+	title_lbl.text = GAME_TITLE
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 38)
+	title_lbl.add_theme_color_override("font_color", BrandStyle.TEXT_WHITE)
+	vbox.add_child(title_lbl)
+
+	var sub_lbl: Label = Label.new()
+	sub_lbl.text = GAME_SUBTITLE
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.add_theme_font_size_override("font_size", 15)
+	sub_lbl.add_theme_color_override("font_color", BrandStyle.TEXT_HEADER)
+	vbox.add_child(sub_lbl)
+
+	var sep: HSeparator = HSeparator.new()
+	vbox.add_child(sep)
+
+	var btn_row: HBoxContainer = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 14)
+	vbox.add_child(btn_row)
+
+	var btn_new: Button = Button.new()
+	btn_new.name = "BtnNewMission"
+	btn_new.text = "New Mission"
+	btn_new.custom_minimum_size = Vector2(210.0, 42.0)
+	btn_new.focus_mode = Control.FOCUS_NONE
+	btn_new.add_theme_font_size_override("font_size", 14)
+	var new_norm: StyleBoxFlat = _make_util_style(Color(0.055, 0.086, 0.141, 0.94), BrandStyle.BTN_BORDER)
+	var new_hov: StyleBoxFlat = _make_util_style(Color(0.082, 0.133, 0.224, 0.98), COL_NEON_YELLOW)
+	btn_new.add_theme_stylebox_override("normal", new_norm)
+	btn_new.add_theme_stylebox_override("hover", new_hov)
+	btn_new.add_theme_stylebox_override("pressed", new_hov)
+	btn_new.add_theme_color_override("font_color", BrandStyle.TEXT_WHITE)
+	btn_new.add_theme_color_override("font_hover_color", COL_NEON_YELLOW)
+	btn_new.pressed.connect(_dismiss_title_overlay.bind(false))
+	btn_row.add_child(btn_new)
+
+	var btn_demo: Button = Button.new()
+	btn_demo.name = "BtnQuickDemo"
+	btn_demo.text = "Quick Demo (Artemis Optimal)"
+	btn_demo.custom_minimum_size = Vector2(250.0, 42.0)
+	btn_demo.focus_mode = Control.FOCUS_NONE
+	btn_demo.add_theme_font_size_override("font_size", 14)
+	var demo_norm: StyleBoxFlat = _make_util_style(Color(0.043, 0.239, 0.569, 0.96), COL_CYAN)
+	var demo_hov: StyleBoxFlat = _make_util_style(Color(0.0, 0.259, 0.651, 1.0), COL_NEON_YELLOW)
+	btn_demo.add_theme_stylebox_override("normal", demo_norm)
+	btn_demo.add_theme_stylebox_override("hover", demo_hov)
+	btn_demo.add_theme_stylebox_override("pressed", demo_hov)
+	btn_demo.add_theme_color_override("font_color", BrandStyle.TEXT_WHITE)
+	btn_demo.add_theme_color_override("font_hover_color", COL_NEON_YELLOW)
+	btn_demo.pressed.connect(_dismiss_title_overlay.bind(true))
+	btn_row.add_child(btn_demo)
+
+
+func _show_title_overlay() -> void:
+	_title_overlay_active = true
+	if is_instance_valid(_title_overlay):
+		_title_overlay.modulate.a = 1.0
+		_title_overlay.visible = true
+	phase1_planning.visible = false
+	if is_instance_valid(phase3_lunar_sim):
+		phase3_lunar_sim.set_title_backdrop_mode(true)
+
+
+func _dismiss_title_overlay(quick_demo: bool) -> void:
+	if not _title_overlay_active:
+		return
+	_title_overlay_active = false
+	_idle_seconds = 0.0
+	play_sfx("quindar_beep")
+
+	if is_instance_valid(phase3_lunar_sim):
+		phase3_lunar_sim.set_title_backdrop_mode(false)
+		phase3_lunar_sim.set_descent_speed_multiplier(2.0 if quick_demo else 1.0)
+
+	if quick_demo:
+		MissionState.apply_preset(1)
+		_switch_to_phase(0, false)
+		_set_next_step_glow(true)
+	else:
+		_switch_to_phase(0, false)
+
+	if is_instance_valid(_title_overlay):
+		var tw: Tween = create_tween()
+		tw.tween_property(_title_overlay, "modulate:a", 0.0, 0.12)
+		tw.tween_callback(func() -> void:
+			if is_instance_valid(_title_overlay):
+				_title_overlay.visible = false
+		)
 
 
 func _setup_audio_players() -> void:
@@ -338,12 +532,16 @@ func _setup_bottom_bar_styles() -> void:
 
 
 func _on_phase_requested(phase_index: int) -> void:
+	if _title_overlay_active:
+		_dismiss_title_overlay(false)
 	_set_next_step_glow(false)
 	play_sfx("quindar_beep")
 	_switch_to_phase(phase_index)
 
 
 func _on_preset_loaded(preset_index: int, _preset_name: String) -> void:
+	if _title_overlay_active:
+		_dismiss_title_overlay(false)
 	_idle_seconds = 0.0
 	_has_evaluated_mission = (preset_index != 3)
 	if is_instance_valid(phase4_debrief) and phase4_debrief.has_method("set_mission_evaluated"):

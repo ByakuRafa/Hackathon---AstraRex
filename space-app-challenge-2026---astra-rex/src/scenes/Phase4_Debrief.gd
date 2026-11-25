@@ -17,6 +17,7 @@ const COLOR_CRIT: Color = BrandStyle.CRITICAL_RED
 const COLOR_ACCENT: Color = BrandStyle.NOMINAL_CYAN
 const COLOR_WHITE: Color = BrandStyle.TEXT_WHITE
 const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
+const MissionMedalEmblemScript: GDScript = preload("res://src/ui/MissionMedalEmblem.gd")
 
 @onready var chart_card: PanelContainer = %ChartCard
 @onready var pareto_chart: ParetoChartControl = %ParetoChart
@@ -51,6 +52,10 @@ var _latest_report: Dictionary = {}
 var _debrief_sparkline: TelemetrySparkline = null
 var _cml_segments_label: Label = null
 var _mission_evaluated: bool = false
+var _medal_emblem: Control = null
+var _medal_rank_label: Label = null
+var _medal_sub_label: Label = null
+var _challenge_benchmark_label: Label = null
 
 
 func _ready() -> void:
@@ -94,10 +99,42 @@ func _setup_fonts_and_sparkline() -> void:
 				_debrief_sparkline.tooltip_text = "Projected 180-Day Surface Dose Curve vs 100 mSv Mission Limit\n[NASA OSDR RadLab & LRO CRaTER]"
 				hdr_row.add_child(_debrief_sparkline)
 
-	# Inject compact 1-line CML 1-4 & 4 Mission Segments indicator into PrimaryStatusCard
+	# Inject Mission Classification Medal Header at the top of PrimaryStatusCard
 	if is_instance_valid(primary_status_card):
 		var p_vbox: VBoxContainer = primary_status_card.get_node_or_null("VBox") as VBoxContainer
 		if p_vbox != null:
+			var medal_row: HBoxContainer = HBoxContainer.new()
+			medal_row.name = "MedalHeaderRow"
+			medal_row.add_theme_constant_override("separation", 10)
+			p_vbox.add_child(medal_row)
+			p_vbox.move_child(medal_row, 0)
+
+			_medal_emblem = MissionMedalEmblemScript.new() as Control
+			_medal_emblem.name = "MedalEmblem"
+			medal_row.add_child(_medal_emblem)
+
+			var medal_text_vbox: VBoxContainer = VBoxContainer.new()
+			medal_text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			medal_text_vbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			medal_text_vbox.add_theme_constant_override("separation", 2)
+			medal_row.add_child(medal_text_vbox)
+
+			_medal_rank_label = Label.new()
+			_medal_rank_label.name = "MedalRankLabel"
+			_medal_rank_label.text = "FLIGHT CERTIFIED"
+			_medal_rank_label.add_theme_font_size_override("font_size", 16)
+			_medal_rank_label.add_theme_color_override("font_color", COLOR_OK)
+			BrandStyle.bind_mono_font(_medal_rank_label)
+			medal_text_vbox.add_child(_medal_rank_label)
+
+			_medal_sub_label = Label.new()
+			_medal_sub_label.name = "MedalSubLabel"
+			_medal_sub_label.text = "Mission Classification Pending"
+			_medal_sub_label.add_theme_font_size_override("font_size", 11)
+			_medal_sub_label.add_theme_color_override("font_color", COLOR_MUTED)
+			_medal_sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			medal_text_vbox.add_child(_medal_sub_label)
+
 			_cml_segments_label = Label.new()
 			_cml_segments_label.name = "CmlSegmentsLabel"
 			_cml_segments_label.add_theme_font_size_override("font_size", 11)
@@ -106,6 +143,29 @@ func _setup_fonts_and_sparkline() -> void:
 			_cml_segments_label.mouse_filter = Control.MOUSE_FILTER_STOP
 			BrandStyle.bind_mono_font(_cml_segments_label)
 			p_vbox.add_child(_cml_segments_label)
+
+	# Inject Community Challenge Benchmark line into BenchmarkCard
+	if is_instance_valid(benchmark_card):
+		var b_vbox: VBoxContainer = benchmark_card.get_node_or_null("VBox") as VBoxContainer
+		if b_vbox != null:
+			_challenge_benchmark_label = Label.new()
+			_challenge_benchmark_label.name = "ChallengeBenchmarkLabel"
+			_challenge_benchmark_label.text = "Benchmark: $213.5M @ 85 Science pts -- Can you beat the Pareto Frontier?"
+			_challenge_benchmark_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_challenge_benchmark_label.add_theme_font_size_override("font_size", 11)
+			_challenge_benchmark_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.40, 1.0))
+			BrandStyle.bind_mono_font(_challenge_benchmark_label)
+			var bench_sb: StyleBoxFlat = StyleBoxFlat.new()
+			bench_sb.bg_color = Color(0.035, 0.055, 0.095, 0.92)
+			bench_sb.border_color = Color(1.0, 0.82, 0.40, 0.55)
+			bench_sb.set_border_width_all(1)
+			bench_sb.set_corner_radius_all(4)
+			bench_sb.content_margin_left = 8.0
+			bench_sb.content_margin_right = 8.0
+			bench_sb.content_margin_top = 4.0
+			bench_sb.content_margin_bottom = 4.0
+			_challenge_benchmark_label.add_theme_stylebox_override("normal", bench_sb)
+			b_vbox.add_child(_challenge_benchmark_label)
 
 
 func set_debrief_active(active: bool) -> void:
@@ -160,7 +220,7 @@ func _refresh_debrief_async() -> void:
 
 	var is_unconfigured: bool = (not _mission_evaluated) or (MissionState.selected_subsystem_ids.size() <= 1)
 	if is_unconfigured:
-		solver_status_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier (solving...)"
+		solver_status_label.text = "Load a preset (Artemis Nominal / Failure Lab) to evaluate the Pareto frontier (solving...)"
 		solver_status_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
 	else:
 		solver_status_label.text = "Solving Pareto Frontier (cooperative frame-slicing)..."
@@ -194,12 +254,12 @@ func _refresh_debrief_async() -> void:
 func _apply_empty_or_evaluated_status(frontier: Array[Dictionary]) -> void:
 	var is_unconfigured: bool = (not _mission_evaluated) or (MissionState.selected_subsystem_ids.size() <= 1)
 	if is_unconfigured:
-		solver_status_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier  •  %d Optimal (%s)" % [
+		solver_status_label.text = "Load a preset (Artemis Nominal / Failure Lab)  •  %d Optimal (%s)" % [
 			frontier.size(),
 			MissionState.selected_landing_zone_id
 		]
 		solver_status_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
-		hover_readout_label.text = "Load a preset (P1/P2) to evaluate the Pareto frontier or hover any point for SI specs."
+		hover_readout_label.text = "Load a preset (Artemis Nominal / Failure Lab) or hover any point for SI specs."
 		hover_readout_label.add_theme_color_override("font_color", BrandStyle.GUIDE_VIOLET)
 	else:
 		solver_status_label.text = "%d Evaluated • %d Pareto-Optimal (%s)" % [
@@ -212,6 +272,7 @@ func _apply_empty_or_evaluated_status(frontier: Array[Dictionary]) -> void:
 
 
 func _render_primary_status_card(report: Dictionary) -> void:
+	_update_medal_card(report)
 	var status_code: String = str(report.get("status", "NOMINAL"))
 	var is_nominal: bool = bool(report.get("nominal", false))
 	var primary_diag: Dictionary = report.get("primary_diagnosis", {}) as Dictionary
@@ -255,6 +316,106 @@ func _render_primary_status_card(report: Dictionary) -> void:
 				NasaDataLoader.get_cml_citation()
 			]
 		)
+
+
+func _update_medal_card(report: Dictionary) -> void:
+	var medal: Dictionary = _compute_medal_tier(report)
+	var tier: int = int(medal["tier"])
+	var rank_text: String = str(medal["rank"])
+	var sub_text: String = str(medal["subtitle"])
+	var col: Color = medal["color"] as Color
+
+	if is_instance_valid(_medal_emblem):
+		_medal_emblem.call("set_tier", tier)
+	if is_instance_valid(_medal_rank_label):
+		_medal_rank_label.text = rank_text
+		_medal_rank_label.add_theme_color_override("font_color", col)
+	if is_instance_valid(_medal_sub_label):
+		_medal_sub_label.text = sub_text
+
+	if is_instance_valid(_challenge_benchmark_label):
+		var telem: Dictionary = report.get("telemetry", {}) as Dictionary
+		var player_pt: Dictionary = report.get("player_design", {}) as Dictionary
+		var sci: float = float(player_pt.get("science_score", 0.0))
+		var total_cost: float = float(telem.get("total_cost_musd", 9999.0))
+		if tier == MissionMedalEmblemScript.MedalTier.PARETO_OPTIMAL and sci >= 85.0 and total_cost <= 213.5:
+			_challenge_benchmark_label.text = "Benchmark: $213.5M @ 85 Science pts -- [BENCHMARK MATCHED!]"
+			_challenge_benchmark_label.add_theme_color_override("font_color", COLOR_OK)
+		else:
+			_challenge_benchmark_label.text = "Benchmark: $213.5M @ 85 Science pts -- Can you beat the Pareto Frontier?"
+			_challenge_benchmark_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.40, 1.0))
+
+
+func _compute_medal_tier(report: Dictionary) -> Dictionary:
+	var telem: Dictionary = report.get("telemetry", {}) as Dictionary
+	var compat: Dictionary = report.get("launch_compatibility", {}) as Dictionary
+	var player_pt: Dictionary = report.get("player_design", {}) as Dictionary
+	var nearest_opt: Dictionary = report.get("nearest_pareto_optimum", {}) as Dictionary
+	var bottlenecks: Array = report.get("all_bottlenecks", []) as Array
+
+	var fatal_codes: Array[String] = [
+		"CRITICAL_THRUST_DEFICIT",
+		"PROPELLANT_DV_SHORTFALL",
+		"LAUNCH_VEHICLE_OVERWEIGHT",
+		"PSR_POWER_BLACKOUT",
+		"SLOPE_TIPOVER_HAZARD",
+		"RADIATION_SEU_RISK"
+	]
+	var has_fatal: bool = (not bool(compat.get("compatible", false))) or (not bool(telem.get("can_land_lunar", false))) or (float(player_pt.get("survival_prob", 0.0)) < 0.50)
+	var has_comms_warn: bool = false
+	for b_var: Variant in bottlenecks:
+		var b: Dictionary = b_var as Dictionary
+		var code: String = str(b.get("code", ""))
+		if code in fatal_codes:
+			has_fatal = true
+		elif code == "DSN_DOWNLINK_BOTTLENECK":
+			has_comms_warn = true
+
+	if has_fatal:
+		return {
+			"tier": MissionMedalEmblemScript.MedalTier.MISSION_LOSS,
+			"rank": "MISSION LOSS",
+			"subtitle": "Critical launch, descent, power, slope, or radiation failure",
+			"color": COLOR_CRIT
+		}
+
+	var net_w: float = float(telem.get("net_power_w", 0.0))
+	var dose_msv: float = float(telem.get("total_mission_dose_msv", 0.0))
+	var dose_limit: float = NasaDataLoader.get_mission_dose_limit_msv()
+	var night_ok: bool = bool(telem.get("can_survive_lunar_night", true))
+	var p_sci: float = float(player_pt.get("science_score", 0.0))
+	if has_comms_warn or net_w < 15.0 or dose_msv > dose_limit * 0.80 or not night_ok or p_sci <= 0.0:
+		return {
+			"tier": MissionMedalEmblemScript.MedalTier.SUBOPTIMAL,
+			"rank": "SUBOPTIMAL",
+			"subtitle": "Survived touchdown with degraded science, DSN backlog, or tight margin",
+			"color": COLOR_WARN
+		}
+
+	var p_cost: float = float(player_pt.get("cost_m_usd", 0.0))
+	var p_mass: float = float(player_pt.get("total_mass_kg", 0.0))
+	var opt_sci: float = float(nearest_opt.get("science_score", p_sci))
+	var opt_cost: float = float(nearest_opt.get("cost_m_usd", p_cost))
+	var opt_mass: float = float(nearest_opt.get("total_mass_kg", p_mass))
+	var near_pareto: bool = nearest_opt.is_empty() or (
+		p_sci >= opt_sci * 0.95 - 0.1
+		and p_cost <= opt_cost * 1.05 + 0.1
+		and p_mass <= opt_mass * 1.05 + 1.0
+	)
+	if near_pareto:
+		return {
+			"tier": MissionMedalEmblemScript.MedalTier.PARETO_OPTIMAL,
+			"rank": "PARETO OPTIMAL",
+			"subtitle": "On or within 5% of the mathematical Pareto Frontier",
+			"color": Color(1.0, 0.82, 0.40, 1.0)
+		}
+
+	return {
+		"tier": MissionMedalEmblemScript.MedalTier.FLIGHT_CERTIFIED,
+		"rank": "FLIGHT CERTIFIED",
+		"subtitle": "All SIR & surface checks passed -- optimize cost/mass to reach Pareto Frontier",
+		"color": COLOR_OK
+	}
 
 
 func _short_seg_tag(status_val: Variant) -> String:
@@ -372,7 +533,7 @@ func _render_benchmark_grid(report: Dictionary) -> void:
 	var dv: float = float(telem.get("delta_v_ms", 0.0))
 	var req_dv: float = float(telem.get("required_dv_ms", 1750.0))
 	_add_grid_row(
-		"Lunar T/W & Δv",
+		"Lunar T/W & dV",
 		"%.2f • %.0f m/s" % [tw, dv],
 		"Req >= %.0f m/s" % req_dv,
 		COLOR_OK if (tw >= 1.0 and dv >= req_dv) else COLOR_CRIT

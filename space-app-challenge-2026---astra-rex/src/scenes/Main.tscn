@@ -138,3 +138,8 @@ custom_minimum_size = Vector2(228, 26)
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "2. Assemble in VAB ->"
+
+[node name="ItchFullscreenSpacer" type="Control" parent="MainVBox/BottomActionBar/Margin/HBox"]
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+mouse_filter = 2

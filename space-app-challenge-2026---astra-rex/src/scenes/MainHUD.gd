@@ -6,6 +6,7 @@ extends PanelContainer
 ## and 6 Compact SI Resource Gauges with progressive-disclosure NASA citations in tooltips.
 
 signal phase_requested(phase_index: int)
+signal guide_toggle_requested(active: bool)
 
 const COLOR_BG_BAR: Color = Color(0.055, 0.086, 0.141, 0.94)        # #0E1624
 const COLOR_CARD_BG: Color = BrandStyle.PANEL_900                   # #0E1624 @ 88%
@@ -36,6 +37,7 @@ const PHASE_TITLES: Array[String] = [
 @onready var btn_preset_2: Button = %BtnPreset2
 @onready var btn_preset_3: Button = %BtnPreset3
 @onready var btn_mode_toggle: Button = %BtnModeToggle
+@onready var btn_micro_guide: Button = %BtnMicroGuide
 
 @onready var btn_phase_1: Button = %BtnPhase1
 @onready var btn_phase_2: Button = %BtnPhase2
@@ -363,6 +365,7 @@ func _apply_compact_hud_buttons() -> void:
 	var all_hud_btns: Array[Button] = []
 	all_hud_btns.append_array(_preset_buttons)
 	all_hud_btns.append(btn_mode_toggle)
+	all_hud_btns.append(btn_micro_guide)
 	all_hud_btns.append_array(_phase_buttons)
 
 	for btn: Button in all_hud_btns:
@@ -409,6 +412,7 @@ func _connect_ui_signals() -> void:
 	btn_preset_2.pressed.connect(_on_preset_pressed.bind(2))
 	btn_preset_3.pressed.connect(_on_preset_pressed.bind(3))
 	btn_mode_toggle.toggled.connect(_on_mode_toggled)
+	btn_micro_guide.toggled.connect(_on_micro_guide_toggled)
 
 	for idx: int in range(_phase_buttons.size()):
 		var btn: Button = _phase_buttons[idx]
@@ -517,6 +521,15 @@ func _on_mode_toggled(toggled_on: bool) -> void:
 	_sync_controls_from_state()
 
 
+func _on_micro_guide_toggled(toggled_on: bool) -> void:
+	guide_toggle_requested.emit(toggled_on)
+
+
+func set_guide_button_pressed(active: bool) -> void:
+	if is_instance_valid(btn_micro_guide):
+		btn_micro_guide.set_pressed_no_signal(active)
+
+
 func _on_preset_loaded(_preset_index: int, _preset_name: String) -> void:
 	_sync_controls_from_state()
 
@@ -546,9 +559,10 @@ func _sync_controls_from_state() -> void:
 		+ "[NASA Reference]\n%s" % NasaDataLoader.get_catalog_citation()
 	)
 
-	btn_preset_1.tooltip_text = "Load Preset 1: Optimal Artemis CLPS (all constraints nominal)."
-	btn_preset_2.tooltip_text = "Load Preset 2: Critical Thrust & PSR Power Failure demonstration."
-	btn_preset_3.tooltip_text = "Load Preset 3: Free Sandbox on SLS Block 1 ($5,000M cap)."
+	btn_preset_1.tooltip_text = "Load Artemis Nominal: Optimal CLPS polar lander configuration (all constraints nominal)."
+	btn_preset_2.tooltip_text = "Load Failure Lab: Critical Thrust (T/W < 1.0) & PSR Power Blackout diagnostic scenario."
+	btn_preset_3.tooltip_text = "Load Free Sandbox: Unconstrained SLS Block 1 sandbox ($5,000M budget cap)."
+	btn_micro_guide.tooltip_text = "Toggle 1-Screen Mission Flow Guide & Aerospace Glossary (?)"
 
 	for idx: int in range(_preset_buttons.size()):
 		var p_btn: Button = _preset_buttons[idx]
@@ -606,7 +620,7 @@ func _emit_telemetry_delta_chip(snap: Dictionary) -> void:
 		)
 	elif absf(d_dv) >= 5.0:
 		show_feedback_chip(
-			"%s Δv %+.0f m/s" % ["+" if d_dv > 0.0 else "[!]", d_dv],
+			"%s dV %+.0f m/s" % ["+" if d_dv > 0.0 else "[!]", d_dv],
 			COLOR_OK if d_dv > 0.0 else COLOR_WARN,
 			card_propulsion
 		)
@@ -669,7 +683,7 @@ func _abbreviate_failure(code: String) -> String:
 		"CRITICAL_THRUST_DEFICIT":
 			return "T/W < 1"
 		"PROPELLANT_DV_SHORTFALL":
-			return "LOW Δv"
+			return "LOW dV"
 		"LAUNCH_VEHICLE_OVERWEIGHT":
 			return "OVERMASS"
 		"PSR_POWER_BLACKOUT":
@@ -761,7 +775,7 @@ func _update_propulsion_card(snap: Dictionary, orbit: Dictionary, eng: bool) -> 
 		prop_value_label.add_theme_color_override("font_color", COLOR_CRIT)
 	elif not dv_ok:
 		prop_value_label.text = "%.0f / %.0f m/s" % [dv, req_dv]
-		prop_sub_label.text = ("[!] DV LOW  •  T/W %.2f" % tw) if eng else ("[!] Δv SHORT  •  %.2f" % tw)
+		prop_sub_label.text = ("[!] DV LOW  •  T/W %.2f" % tw) if eng else ("[!] dV SHORT  •  %.2f" % tw)
 		prop_value_label.add_theme_color_override("font_color", COLOR_WARN)
 	else:
 		if eng:

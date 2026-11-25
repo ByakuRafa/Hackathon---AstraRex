@@ -27,19 +27,19 @@ theme_override_constants/separation = 4
 
 [node name="BtnPreset1" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(88, 24)
+custom_minimum_size = Vector2(106, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "P1: Optimal"
+text = "Artemis Nominal"
 
 [node name="BtnPreset2" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(84, 24)
+custom_minimum_size = Vector2(82, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "P2: Failure"
+text = "Failure Lab"
 
 [node name="BtnPreset3" type="Button" parent="RootVBox/TopControlRow/PresetsGroup"]
 unique_name_in_owner = true
@@ -47,7 +47,7 @@ custom_minimum_size = Vector2(92, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
-text = "P3: Sandbox"
+text = "Free Sandbox"
 
 [node name="Sep1" type="VSeparator" parent="RootVBox/TopControlRow"]
 layout_mode = 2
@@ -94,7 +94,7 @@ size_flags_horizontal = 3
 
 [node name="StatusBadgeLabel" type="Label" parent="RootVBox/TopControlRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 24)
+custom_minimum_size = Vector2(142, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
@@ -107,11 +107,19 @@ layout_mode = 2
 
 [node name="BtnModeToggle" type="Button" parent="RootVBox/TopControlRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(114, 24)
+custom_minimum_size = Vector2(106, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 toggle_mode = true
 text = "STUDENT"
+
+[node name="BtnMicroGuide" type="Button" parent="RootVBox/TopControlRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(28, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+toggle_mode = true
+text = "?"
 
 [node name="TelemetryRow" type="HBoxContainer" parent="RootVBox"]
 layout_mode = 2

@@ -23,6 +23,7 @@ const GRID_RES: int = 128
 const GRID_HALF_SPAN: float = 63.5
 const START_AGL_METERS: float = 26.0
 const DESCENT_TARGET_DURATION_S: float = 4.0
+const BASE_DESCENT_TIME_SCALE: float = 0.5
 const RAYCAST_LENGTH: float = 95.0
 
 # Calibrated grid coordinates (ix, iz) on the 128x128 LRO LOLA DEM
@@ -90,6 +91,9 @@ const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 
 @onready var btn_back_vab: Button = %BtnBackVAB
 @onready var btn_restart_descent: Button = %BtnRestartDescent
+@onready var btn_speed_1x: Button = %BtnSpeed1x
+@onready var btn_speed_2x: Button = %BtnSpeed2x
+@onready var btn_speed_4x: Button = %BtnSpeed4x
 @onready var btn_spe_storm: Button = %BtnSPEStorm
 @onready var btn_safe_mode: Button = %BtnSafeMode
 @onready var btn_advance_days: Button = %BtnAdvanceDays
@@ -100,6 +104,10 @@ var _heightmap_rf_image: Image = null
 var _terrain_pbr_mat: StandardMaterial3D = null
 var _terrain_shader_mat: ShaderMaterial = null
 var _zone_marker_meshes: Dictionary = {}
+var _thruster_particles: GPUParticles3D = null
+var _thruster_part_mat: ParticleProcessMaterial = null
+var _title_backdrop_mode: bool = false
+var _descent_speed_mult: float = 1.0
 
 var _sim_phase: SimPhase = SimPhase.PRE_DESCENT
 var _is_sim_active: bool = false
@@ -138,12 +146,69 @@ func _ready() -> void:
 	LanderChassis.apply_webgl_aerospace_materials(lander_chassis)
 	_build_shackleton_terrain()
 	_build_zone_markers()
+	_setup_thruster_particles()
 	_setup_raycast_exceptions()
 	_connect_signals()
 	_update_ephemeris_vectors()
 	_refresh_zone_buttons()
 	_refresh_ui_labels()
+	set_descent_speed_multiplier(1.0)
 	set_lunar_sim_active(false)
+
+
+func _setup_thruster_particles() -> void:
+	if not is_instance_valid(lander_pivot):
+		return
+	_thruster_particles = GPUParticles3D.new()
+	_thruster_particles.name = "ThrusterExhaustParticles"
+	_thruster_particles.position = Vector3(0.0, 0.34, 0.0)
+	_thruster_particles.amount = 48
+	_thruster_particles.lifetime = 0.42
+	_thruster_particles.local_coords = false
+	_thruster_particles.emitting = false
+
+	_thruster_part_mat = ParticleProcessMaterial.new()
+	_thruster_part_mat.direction = Vector3(0.0, -1.0, 0.0)
+	_thruster_part_mat.spread = 11.0
+	_thruster_part_mat.gravity = Vector3(0.0, -0.4, 0.0)
+	_thruster_part_mat.initial_velocity_min = 4.5
+	_thruster_part_mat.initial_velocity_max = 8.5
+	_thruster_part_mat.scale_min = 0.22
+	_thruster_part_mat.scale_max = 0.65
+
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(0.95, 0.99, 1.0, 0.95))
+	grad.add_point(0.35, Color(0.35, 0.85, 1.0, 0.72))
+	grad.set_color(1, Color(0.12, 0.42, 0.95, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	_thruster_part_mat.color_ramp = grad_tex
+	_thruster_particles.process_material = _thruster_part_mat
+
+	var rad_grad: Gradient = Gradient.new()
+	rad_grad.set_color(0, Color(1.0, 1.0, 1.0, 1.0))
+	rad_grad.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
+	var rad_tex: GradientTexture2D = GradientTexture2D.new()
+	rad_tex.width = 32
+	rad_tex.height = 32
+	rad_tex.fill = GradientTexture2D.FILL_RADIAL
+	rad_tex.fill_from = Vector2(0.5, 0.5)
+	rad_tex.fill_to = Vector2(0.5, 0.0)
+	rad_tex.gradient = rad_grad
+
+	var quad: QuadMesh = QuadMesh.new()
+	quad.size = Vector2(0.42, 0.42)
+	var draw_mat: StandardMaterial3D = StandardMaterial3D.new()
+	draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	draw_mat.vertex_color_use_as_albedo = true
+	draw_mat.albedo_texture = rad_tex
+	quad.material = draw_mat
+	_thruster_particles.draw_pass_1 = quad
+
+	lander_pivot.add_child(_thruster_particles)
 
 
 func _bind_tabular_telemetry_fonts() -> void:
@@ -162,10 +227,70 @@ func _bind_tabular_telemetry_fonts() -> void:
 	for btn: Button in [
 		btn_zone_rim, btn_zone_wall, btn_zone_psr,
 		btn_lidar_overlay, btn_reset_cam,
-		btn_back_vab, btn_restart_descent, btn_spe_storm,
+		btn_back_vab, btn_restart_descent, btn_speed_1x, btn_speed_2x, btn_speed_4x, btn_spe_storm,
 		btn_safe_mode, btn_advance_days, btn_proceed_debrief,
 	]:
 		btn.focus_mode = Control.FOCUS_NONE
+
+
+func set_title_backdrop_mode(active: bool) -> void:
+	_title_backdrop_mode = active
+	var ui_layout: Control = get_node_or_null("UILayout") as Control
+	if is_instance_valid(ui_layout):
+		ui_layout.visible = not active
+	if active:
+		visible = true
+		if is_instance_valid(lunar_world):
+			lunar_world.visible = true
+		if is_instance_valid(lunar_camera):
+			lunar_camera.current = true
+		if is_instance_valid(raycast_timer):
+			raycast_timer.stop()
+		_sim_phase = SimPhase.PRE_DESCENT
+		_set_sim_loop_sfx("thruster_burn", false)
+		_update_plume_visual(false, 0.0)
+		var xz: Vector2 = _get_zone_world_xz("connecting_ridge_rim")
+		var gy: float = _sample_ground_y(xz.x, xz.y)
+		lander_pivot.position = Vector3(xz.x, gy, xz.y)
+		lander_pivot.rotation_degrees = Vector3.ZERO
+		_cam_pitch = -0.30
+		_target_pitch = -0.30
+		_cam_distance = 11.2
+		_target_distance = 11.2
+		_cam_yaw = 0.65
+		_target_yaw = 0.65
+		_update_camera_transform(true)
+	elif not _is_sim_active:
+		visible = false
+		if is_instance_valid(lunar_world):
+			lunar_world.visible = false
+		if is_instance_valid(lunar_camera):
+			lunar_camera.current = false
+
+
+func set_descent_speed_multiplier(mult: float) -> void:
+	_descent_speed_mult = clampf(mult, 1.0, 4.0)
+	var speed_btns: Array[Button] = [btn_speed_1x, btn_speed_2x, btn_speed_4x]
+	var speed_vals: Array[float] = [1.0, 2.0, 4.0]
+	for i: int in range(speed_btns.size()):
+		var b: Button = speed_btns[i]
+		if not is_instance_valid(b):
+			continue
+		var is_act: bool = is_equal_approx(_descent_speed_mult, speed_vals[i])
+		b.set_pressed_no_signal(is_act)
+		var sb: StyleBoxFlat = StyleBoxFlat.new()
+		sb.bg_color = Color(0.0, 0.259, 0.651, 0.92) if is_act else Color(0.055, 0.086, 0.141, 0.92)
+		sb.border_color = COLOR_NEON_YELLOW if is_act else BrandStyle.BTN_BORDER
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(4)
+		sb.content_margin_left = 6.0
+		sb.content_margin_right = 6.0
+		sb.content_margin_top = 4.0
+		sb.content_margin_bottom = 4.0
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.add_theme_color_override("font_color", COLOR_ACCENT if is_act else BrandStyle.TEXT_HEADER)
+		b.add_theme_color_override("font_pressed_color", COLOR_ACCENT)
 
 
 func _play_sim_sfx(sfx_name: String) -> void:
@@ -211,6 +336,14 @@ func set_lunar_sim_active(active: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _title_backdrop_mode:
+		_target_yaw += delta * 0.14
+		var t_w: float = clampf(delta * 5.0, 0.0, 1.0)
+		_cam_yaw = lerpf(_cam_yaw, _target_yaw, t_w)
+		_cam_pitch = lerpf(_cam_pitch, _target_pitch, t_w)
+		_cam_distance = lerpf(_cam_distance, _target_distance, t_w)
+		_update_camera_transform(false)
+		return
 	if not _is_sim_active:
 		return
 
@@ -225,10 +358,11 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not _is_sim_active or _sim_phase != SimPhase.DESCENDING:
+	if _title_backdrop_mode or not _is_sim_active or _sim_phase != SimPhase.DESCENDING:
 		return
 
-	_sim_elapsed_s += delta
+	var sim_dt: float = delta * BASE_DESCENT_TIME_SCALE * _descent_speed_mult
+	_sim_elapsed_s += sim_dt
 	var target_xz: Vector2 = _get_zone_world_xz(MissionState.selected_landing_zone_id)
 	var ground_y: float = _sample_ground_y(lander_pivot.position.x, lander_pivot.position.z)
 	var agl_m: float = maxf(0.0, lander_pivot.position.y - ground_y)
@@ -242,8 +376,8 @@ func _physics_process(delta: float) -> void:
 	if not can_land and (reason == "CRITICAL_THRUST_DEFICIT" or reason == "NO_PROPULSION_MODULE"):
 		# Unarrested descent under lunar gravity: thrust cannot overcome lunar weight
 		var accel_y: float = (max_thrust_n / m0_kg) - MissionState.LUNAR_GRAVITY_M_S2
-		_lander_vel_y += accel_y * delta * 3.5
-		lander_pivot.position.y += _lander_vel_y * delta
+		_lander_vel_y += accel_y * sim_dt * 3.5
+		lander_pivot.position.y += _lander_vel_y * sim_dt
 		_current_throttle = 1.0 if max_thrust_n > 0.0 else 0.0
 		_update_plume_visual(_current_throttle > 0.0, 0.35)
 
@@ -264,34 +398,34 @@ func _physics_process(delta: float) -> void:
 	if not can_land and reason == "PROPELLANT_DV_SHORTFALL":
 		# Burns until propellant exhaustion mid-descent, then aborts
 		if _sim_elapsed_s < 1.6 and _sim_propellant_remaining_kg > 0.0:
-			_sim_propellant_remaining_kg = maxf(0.0, _sim_propellant_remaining_kg - 220.0 * delta)
-			_lander_vel_y = lerpf(_lander_vel_y, -2.5, delta * 2.0)
-			lander_pivot.position.y += _lander_vel_y * delta
+			_sim_propellant_remaining_kg = maxf(0.0, _sim_propellant_remaining_kg - 220.0 * sim_dt)
+			_lander_vel_y = lerpf(_lander_vel_y, -2.5, sim_dt * 2.0)
+			lander_pivot.position.y += _lander_vel_y * sim_dt
 			_update_plume_visual(true, 0.8)
 		else:
 			_sim_phase = SimPhase.ABORTED_LOCKOUT
 			_lander_vel_y = 0.0
 			_update_plume_visual(false, 0.0)
 			_play_sim_sfx("spe_alarm")
-			_apply_status_pill("[X] FAIL: Δv SHORTFALL — Propellant Depleted", COLOR_CRIT)
+			_apply_status_pill("[X] FAIL: dV SHORTFALL — Propellant Depleted", COLOR_CRIT)
 			MissionState.recalculate_all_telemetry(true)
 			descent_completed.emit(false)
 		_refresh_ui_labels()
 		return
 
-	# Nominal closed-loop PID terminal descent (calibrated to complete 26m in ~4.0s for <45s judge runs)
+	# Nominal closed-loop PID terminal descent
 	if MissionState.selected_landing_zone_id == "inner_wall_hazard" and MissionState.has_lidar_trn and agl_m < 13.0:
 		if not _trn_divert_applied:
 			_trn_divert_applied = true
 			_apply_status_pill("[OK] TRN ACTIVE: Diverting to <15° Pad", COLOR_ACCENT)
 		# Lateral hazard avoidance micro-divert
-		lander_pivot.position.x = lerpf(lander_pivot.position.x, target_xz.x - 1.4, delta * 2.4)
-		lander_pivot.position.z = lerpf(lander_pivot.position.z, target_xz.y + 0.8, delta * 2.4)
+		lander_pivot.position.x = lerpf(lander_pivot.position.x, target_xz.x - 1.4, sim_dt * 2.4)
+		lander_pivot.position.z = lerpf(lander_pivot.position.z, target_xz.y + 0.8, sim_dt * 2.4)
 
 	var v_ref: float = -clampf(sqrt(2.0 * 1.65 * MissionState.LUNAR_GRAVITY_M_S2 * agl_m), 1.45, 9.8)
 	var vel_err: float = v_ref - _lander_vel_y
-	_pid_integral = clampf(_pid_integral + vel_err * delta, -4.0, 4.0)
-	var vel_deriv: float = (vel_err - _pid_prev_error) / maxf(0.001, delta)
+	_pid_integral = clampf(_pid_integral + vel_err * sim_dt, -4.0, 4.0)
+	var vel_deriv: float = (vel_err - _pid_prev_error) / maxf(0.001, sim_dt)
 	_pid_prev_error = vel_err
 
 	var hover_accel: float = MissionState.LUNAR_GRAVITY_M_S2
@@ -300,11 +434,11 @@ func _physics_process(delta: float) -> void:
 	_current_throttle = clampf(cmd_accel / max_accel, 0.12, 1.0)
 
 	var net_accel_y: float = (_current_throttle * max_accel) - MissionState.LUNAR_GRAVITY_M_S2
-	_lander_vel_y += net_accel_y * delta
-	lander_pivot.position.y += _lander_vel_y * delta
+	_lander_vel_y += net_accel_y * sim_dt
+	lander_pivot.position.y += _lander_vel_y * sim_dt
 
 	var mass_flow: float = (max_thrust_n * _current_throttle) / maxf(100.0, MissionState.effective_isp_s * MissionState.G0_M_S2)
-	_sim_propellant_remaining_kg = maxf(0.0, _sim_propellant_remaining_kg - mass_flow * delta * 8.0)
+	_sim_propellant_remaining_kg = maxf(0.0, _sim_propellant_remaining_kg - mass_flow * sim_dt * 8.0)
 
 	_update_plume_visual(true, _current_throttle)
 
@@ -504,7 +638,9 @@ func _build_shackleton_terrain() -> void:
 	shader.code = """shader_type spatial;
 render_mode cull_disabled, specular_schlick_ggx;
 
-uniform float lidar_overlay : hint_range(0.0, 1.0) = 1.0;
+uniform sampler2D regolith_tex : source_color;
+uniform float has_regolith_tex = 0.0;
+uniform float lidar_overlay : hint_range(0.0, 1.0) = 0.0;
 varying vec3 v_world_pos;
 varying vec3 v_world_normal;
 
@@ -515,15 +651,24 @@ void vertex() {
 
 void fragment() {
 	vec3 base_col = COLOR.rgb;
+	vec3 tex_col = texture(regolith_tex, UV).rgb;
+	vec3 albedo_base = mix(base_col, base_col * (0.55 + 0.65 * tex_col), has_regolith_tex);
 	float grain = fract(sin(dot(floor(v_world_pos.xz * 4.0), vec2(12.9898, 78.233))) * 43758.5453);
-	vec3 regolith = base_col * (0.92 + 0.16 * grain);
+	vec3 regolith = albedo_base * (0.90 + 0.16 * grain);
+
 	float cos_slope = clamp(dot(normalize(v_world_normal), vec3(0.0, 1.0, 0.0)), 0.0, 1.0);
 	float slope_deg = degrees(acos(cos_slope));
-	float hazard = smoothstep(14.5, 16.0, slope_deg);
+	float hazard = smoothstep(14.5, 16.2, slope_deg);
+	float contour = 1.0 - smoothstep(0.04, 0.11, abs(fract(v_world_pos.y * 1.8) - 0.5));
+
+	vec3 hazard_tint = mix(vec3(0.86, 0.26, 0.16), vec3(1.0, 0.68, 0.18), contour * 0.72);
+	vec3 natural_hazard = mix(regolith, hazard_tint, hazard * 0.68);
+
 	vec2 grid_f = abs(fract(v_world_pos.xz * 0.5 - 0.5) - 0.5);
 	float grid_line = 1.0 - smoothstep(0.02, 0.06, min(grid_f.x, grid_f.y));
-	vec3 lidar_col = mix(vec3(0.10, 0.72, 0.55), vec3(0.95, 0.22, 0.22), hazard);
-	vec3 final_albedo = mix(regolith, mix(regolith, lidar_col, 0.55 + 0.25 * grid_line), lidar_overlay);
+	vec3 lidar_col = mix(vec3(0.10, 0.72, 0.55), vec3(0.96, 0.22, 0.20), hazard);
+	vec3 final_albedo = mix(natural_hazard, mix(natural_hazard, lidar_col, 0.52 + 0.25 * grid_line), lidar_overlay);
+
 	ALBEDO = final_albedo;
 	ROUGHNESS = 0.94;
 	METALLIC = 0.02;
@@ -531,8 +676,13 @@ void fragment() {
 """
 	_terrain_shader_mat = ShaderMaterial.new()
 	_terrain_shader_mat.shader = shader
-	_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0)
-	terrain_mesh.material_override = _terrain_pbr_mat
+	if ResourceLoader.exists("res://assets/terrain/regolith_albedo.webp"):
+		_terrain_shader_mat.set_shader_parameter("regolith_tex", ResourceLoader.load("res://assets/terrain/regolith_albedo.webp") as Texture2D)
+		_terrain_shader_mat.set_shader_parameter("has_regolith_tex", 1.0)
+	else:
+		_terrain_shader_mat.set_shader_parameter("has_regolith_tex", 0.0)
+	_terrain_shader_mat.set_shader_parameter("lidar_overlay", 0.0)
+	terrain_mesh.material_override = _terrain_shader_mat
 
 
 func _regolith_color(world_h: float, world_min_y: float, world_amp_y: float, slope_deg: float = 0.0) -> Color:
@@ -724,9 +874,15 @@ func _perform_celestial_raycasts() -> void:
 func _update_plume_visual(active: bool, throttle: float) -> void:
 	var burn_on: bool = _is_sim_active and _sim_phase == SimPhase.DESCENDING and active and throttle > 0.05
 	_set_sim_loop_sfx("thruster_burn", burn_on)
+	if is_instance_valid(_thruster_particles):
+		_thruster_particles.emitting = burn_on
+		if burn_on:
+			_thruster_particles.amount_ratio = clampf(0.25 + throttle * 0.75, 0.0, 1.0)
+			if _thruster_part_mat != null:
+				_thruster_part_mat.initial_velocity_max = lerpf(4.5, 9.5, throttle)
 	if not is_instance_valid(thruster_plume):
 		return
-	thruster_plume.visible = active and throttle > 0.05
+	thruster_plume.visible = burn_on
 	if thruster_plume.visible:
 		var scale_y: float = clampf(0.45 + throttle * 1.15, 0.4, 1.8)
 		var scale_xz: float = clampf(0.65 + throttle * 0.45, 0.5, 1.2)
@@ -746,6 +902,9 @@ func _connect_signals() -> void:
 
 	btn_back_vab.pressed.connect(func() -> void: return_to_vab_requested.emit())
 	btn_restart_descent.pressed.connect(start_or_restart_descent)
+	btn_speed_1x.pressed.connect(func() -> void: _play_sim_sfx("ui_hover_tick"); set_descent_speed_multiplier(1.0))
+	btn_speed_2x.pressed.connect(func() -> void: _play_sim_sfx("ui_hover_tick"); set_descent_speed_multiplier(2.0))
+	btn_speed_4x.pressed.connect(func() -> void: _play_sim_sfx("ui_hover_tick"); set_descent_speed_multiplier(4.0))
 	btn_spe_storm.toggled.connect(_on_spe_storm_toggled)
 	btn_safe_mode.toggled.connect(_on_safe_mode_toggled)
 	btn_advance_days.pressed.connect(_on_advance_days_pressed)
@@ -789,12 +948,9 @@ func _on_zone_selected(zone_id: String) -> void:
 
 func _on_lidar_overlay_toggled(toggled_on: bool) -> void:
 	_play_sim_sfx("ui_hover_tick")
-	if is_instance_valid(terrain_mesh):
-		if toggled_on and _terrain_shader_mat != null:
-			_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0)
-			terrain_mesh.material_override = _terrain_shader_mat
-		elif _terrain_pbr_mat != null:
-			terrain_mesh.material_override = _terrain_pbr_mat
+	if is_instance_valid(terrain_mesh) and _terrain_shader_mat != null:
+		terrain_mesh.material_override = _terrain_shader_mat
+		_terrain_shader_mat.set_shader_parameter("lidar_overlay", 1.0 if toggled_on else 0.0)
 
 
 func _on_spe_storm_toggled(toggled_on: bool) -> void:
@@ -848,11 +1004,11 @@ func _refresh_ui_labels() -> void:
 	telemetry_zone_label.text = "Site: %s" % str(ZONE_LABELS.get(zone_id, zone_id))
 	if eng:
 		telemetry_agl_label.text = "AGL: %.1f m  •  T/W %.2f" % [agl_m, MissionState.lunar_tw_ratio]
-		telemetry_vel_label.text = "Vz: %+.2f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
+		telemetry_vel_label.text = "Vz: %+.2f m/s  •  dV %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
 	else:
 		var tw_txt: String = "SAFE LANDING T/W" if MissionState.lunar_tw_ratio >= 1.0 else "THRUST DEFICIT"
 		telemetry_agl_label.text = "AGL: %.0f m  •  %s" % [agl_m, tw_txt]
-		telemetry_vel_label.text = "Vel: %+.1f m/s  •  Δv %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
+		telemetry_vel_label.text = "Vel: %+.1f m/s  •  dV %.0f m/s" % [_lander_vel_y, MissionState.delta_v_ms]
 	telemetry_slope_label.text = "Slope: %.1f°  •  TRN %s" % [_touchdown_slope_deg, "ON" if MissionState.has_lidar_trn else "OFF"]
 
 	var solar_ok: bool = MissionState.net_power_w >= 0.0

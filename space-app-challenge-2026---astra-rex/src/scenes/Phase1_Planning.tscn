@@ -49,7 +49,7 @@ horizontal_scroll_mode = 0
 [node name="VBox" type="VBoxContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 4
 
 [node name="HeaderMission" type="Label" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 layout_mode = 2
@@ -66,7 +66,7 @@ text = "SCIENCE OBJECTIVE"
 [node name="ObjectiveList" type="VBoxContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 
 [node name="Sep1" type="HSeparator" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 layout_mode = 2
@@ -80,7 +80,7 @@ text = "TARGET LANDING SITE"
 [node name="ZoneList" type="VBoxContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 
 [node name="Sep2" type="HSeparator" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 layout_mode = 2
@@ -89,24 +89,26 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
 theme_override_font_sizes/font_size = 12
-text = "TEAM ROLES (1–4P)"
+text = "TEAM ROLES (1-4P)"
 
 [node name="TeamSizeRow" type="HBoxContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
-[node name="RoleList" type="VBoxContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
+[node name="RoleList" type="GridContainer" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
+columns = 2
 
 [node name="RolePriorityLabel" type="Label" parent="Margin/MainColumns/MissionRolesPanel/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.639, 0.722, 1)
 theme_override_font_sizes/font_size = 12
-text = "Focus: Mass  •  Cost  •  Orbit Δv"
+text = "Focus: Mass  •  Cost  •  Orbit dV"
 text_overrun_behavior = 3
 
 [node name="LaunchVehiclePanel" type="PanelContainer" parent="Margin/MainColumns"]

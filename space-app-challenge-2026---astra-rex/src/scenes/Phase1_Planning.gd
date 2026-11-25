@@ -74,13 +74,13 @@ const ROLE_DEFS: Array[Dictionary] = [
 	{
 		"role": MissionState.TeamRole.PLANNER,
 		"short": "1. Mission Planner",
-		"stats": "Mass  •  Cost  •  Orbit Δv",
+		"stats": "Mass • Cost • Orbit dV",
 		"focus": "TLI Wet Mass (kg), Lifecycle Budget Cap (M$), Orbit Delta-V & DTE (%)"
 	},
 	{
 		"role": MissionState.TeamRole.PROPULSION_GNC,
 		"short": "2. Propulsion & GNC",
-		"stats": "T/W  •  Δv  •  TRN Slope",
+		"stats": "T/W • dV • TRN Slope",
 		"focus": "Lunar T/W (>= 1.0), Tsiolkovsky Delta-V (m/s), Hazard LiDAR Slope (<= 15 deg)"
 	},
 	{
@@ -108,7 +108,7 @@ const COLOR_MUTED: Color = BrandStyle.TEXT_MUTED
 @onready var objective_list: VBoxContainer = %ObjectiveList
 @onready var zone_list: VBoxContainer = %ZoneList
 @onready var team_size_row: HBoxContainer = %TeamSizeRow
-@onready var role_list: VBoxContainer = %RoleList
+@onready var role_list: GridContainer = %RoleList
 @onready var role_priority_label: Label = %RolePriorityLabel
 @onready var lv_list: VBoxContainer = %LaunchVehicleList
 @onready var orbit_list: VBoxContainer = %OrbitList
@@ -154,7 +154,8 @@ func _style_background_panels() -> void:
 	for n: Node in bg_nodes:
 		var panel: PanelContainer = n as PanelContainer
 		if panel != null:
-			BrandStyle.apply_panel_style(panel, 16.0, 12.0, 12.0)
+			var pad_v: float = 8.0 if panel.name == "MissionRolesPanel" else 12.0
+			BrandStyle.apply_panel_style(panel, 16.0, pad_v, pad_v)
 
 
 func _style_proceed_button() -> void:
@@ -192,7 +193,7 @@ func _build_objective_buttons() -> void:
 	for obj_def: Dictionary in OBJECTIVES:
 		var title: String = str(obj_def.get("title", ""))
 		var stats: String = str(obj_def.get("stats", ""))
-		var btn: Button = _make_option_button(50.0)
+		var btn: Button = _make_option_button(38.0, 12)
 		btn.text = "%s\n%s" % [title, stats]
 		btn.tooltip_text = "%s\n%s\nRecommended Hardware: %s\n\n[NASA Reference]\n%s" % [
 			title,
@@ -223,7 +224,7 @@ func _build_landing_zone_buttons() -> void:
 		var sci_mult: float = float(zone.get("science_multiplier", 1.0))
 		var elev_m: float = float(zone.get("elevation_m", 0.0))
 
-		var btn: Button = _make_option_button(50.0)
+		var btn: Button = _make_option_button(38.0, 12)
 		btn.text = "%s\n%.1f°  •  %.0f%% Sun  •  x%.2f Sci" % [
 			short_name, slope, solar_pct, sci_mult
 		]
@@ -240,7 +241,7 @@ func _build_landing_zone_buttons() -> void:
 
 func _build_team_controls() -> void:
 	for count: int in range(1, 5):
-		var btn: Button = _make_option_button(34.0)
+		var btn: Button = _make_option_button(26.0, 12)
 		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.text = "%dP" % count if count > 1 else "1P Solo"
@@ -251,7 +252,8 @@ func _build_team_controls() -> void:
 
 	for r_def: Dictionary in ROLE_DEFS:
 		var role_id: int = int(r_def.get("role", 0))
-		var btn: Button = _make_option_button(48.0)
+		var btn: Button = _make_option_button(38.0, 11)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.text = "%s\n%s" % [str(r_def.get("short", "")), str(r_def.get("stats", ""))]
 		btn.tooltip_text = "Asymmetric Team Role: %s\nPriority Metrics: %s" % [
 			MissionState.get_role_label(role_id),
@@ -384,7 +386,7 @@ func _build_orbit_buttons() -> void:
 func _build_check_grid() -> void:
 	var rows: Array[Array] = [
 		["mass", "TLI Mass Cap"],
-		["dv", "Descent Δv"],
+		["dv", "Descent dV"],
 		["tw", "Lunar T/W"],
 		["dte", "DTE Contact"],
 		["cost", "Mission Cost"]
@@ -535,7 +537,7 @@ func _refresh_ui(snap: Dictionary) -> void:
 				orb_btn.text = "%s\n%.0f m/s  •  %.0f%% DTE  •  %.1f h" % [orb_short, orb_dv, orb_dte, orb_period]
 			else:
 				var orb_tag: String = str(ORBIT_STUDENT_TAGS.get(orb_key, "Orbit"))
-				orb_btn.text = "%s (%s)\n%.0f m/s Δv  •  %.0f%% DTE" % [orb_short, orb_tag, orb_dv, orb_dte]
+				orb_btn.text = "%s (%s)\n%.0f m/s dV  •  %.0f%% DTE" % [orb_short, orb_tag, orb_dv, orb_dte]
 
 	_update_launch_vehicle_check(snap)
 	_update_segments_and_cml_panel(snap)
@@ -601,13 +603,13 @@ func _update_role_priority_callout(active_r: int, snap: Dictionary) -> void:
 	var detail: String = ""
 	match active_r:
 		MissionState.TeamRole.PLANNER:
-			detail = "Focus: m0 %.0f kg  •  Cost $%.0fM  •  Req Δv %.0f m/s" % [
+			detail = "Focus: m0 %.0f kg  •  Cost $%.0fM  •  Req dV %.0f m/s" % [
 				float(snap.get("m0_wet_kg", 0.0)),
 				float(snap.get("total_cost_musd", 0.0)),
 				float(snap.get("required_dv_ms", 1750.0))
 			]
 		MissionState.TeamRole.PROPULSION_GNC:
-			detail = "Focus: T/W %.2f  •  Δv %.0f m/s  •  TRN %s" % [
+			detail = "Focus: T/W %.2f  •  dV %.0f m/s  •  TRN %s" % [
 				float(snap.get("lunar_tw_ratio", 0.0)),
 				float(snap.get("delta_v_ms", 0.0)),
 				"OK" if bool(snap.get("has_lidar_trn", false)) else "NONE"

@@ -478,7 +478,7 @@ func _on_part_hovered(part_id: String) -> void:
 	var d_pwr: float = float(deltas.get("d_power_w", 0.0))
 	var d_cost: float = float(deltas.get("d_cost_musd", 0.0))
 	var cost_sign: String = "+" if d_cost >= 0.0 else "-"
-	hover_delta_label.text = "[%s] ΔMass %+.0f kg • Δv %+.0f m/s • ΔPwr %+.0f W • ΔCost %s$%.1fM" % [
+	hover_delta_label.text = "[%s] dMass %+.0f kg • dV %+.0f m/s • dPwr %+.0f W • dCost %s$%.1fM" % [
 		action, d_mass, d_dv, d_pwr, cost_sign, absf(d_cost)
 	]
 	var is_caution: bool = (action == "REMOVE") or (d_dv < -50.0) or (d_pwr < -20.0) or (d_mass > 50.0)
